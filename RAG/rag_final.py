@@ -7,6 +7,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.output_parsers import StrOutputParser
 from dotenv import load_dotenv
 import streamlit as st
+from vector_db import get_vector_db
 
 load_dotenv()
 
@@ -58,20 +59,6 @@ prompt = PromptTemplate(
 model = ChatHuggingFace(llm=llm)
 
 parser = StrOutputParser()
-
-@st.cache_resource
-def get_vector_db(file_bytes):
-    with open("temp.pdf", "wb") as f:
-        f.write(file_bytes)
-
-    loader = PyMuPDFLoader("temp.pdf")
-    docs = loader.load()
-
-    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-    chunks = splitter.split_documents(docs)
-
-    embeddings = HuggingFaceEmbeddings(model='all-MiniLM-L6-v2')
-    return FAISS.from_documents(chunks, embeddings)
 
 if not file:
     st.stop()
