@@ -1,70 +1,75 @@
-from langchain_core.tools import tool
-from langchain_community.tools import WikipediaQueryRun
-from langchain_community.utilities import WikipediaAPIWrapper
+from tools import Tools
+from langchain_core.messages import HumanMessage, ToolMessage, AIMessage, SystemMessage
+from langchain_ollama import ChatOllama
 from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
-from dotenv import load_dotenv
-from langchain_community.tools import DuckDuckGoSearchRun
-from langchain_core.messages import HumanMessage, ToolMessage
 
-load_dotenv()
-
-def message_for_AI(res, message):
-    message.append(res)
-    
-    for i in res.tool_calls:
-        selected = {
-            "addition": addition,
-            "multiplication": multiplication,
-            "wikipedia": wiki_tool,
-            "duckduckgo_search": duck_tool
-        }[i["name"].lower()]
-
-        tool_output = selected.invoke(i["args"])
-
-        message.append(
-            ToolMessage(
-                content=str(tool_output),
-                name=i["name"],
-                tool_call_id=i["id"]     
-            )
-        )
-
-    return llm_with_tools.invoke(message)
-
-llm = HuggingFaceEndpoint(
+model = HuggingFaceEndpoint(
     repo_id='moonshotai/Kimi-K2-Thinking',
     task='text-generation'
 )
 
-model = ChatHuggingFace(llm=llm)
+llm = ChatHuggingFace(llm=model)
 
 
-@tool
-def multiplication(a: int, b: int) -> int:
-    """This is a function for multiply two numbers"""
-    return a*b
+# llm = ChatOllama(
+#     model="qwen2.5:7b-instruct",
+#     base_url="https://clark-spouse-belkin-started.trycloudflare.com/",
+#     temperature=0,
+# )
+    
+tools = [Tools.what_the_duck, Tools.wiki, Tools.weather, Tools.news]
+llm_w_tools = llm.bind_tools(tools)
 
-@tool
-def addition(a: int, b: int) -> int:
-    """This is a function for add two numbers"""
-    return a+b
+def process_query(query):
+    messages = [
+        SystemMessage(content="You are a helpful assistant. Use the available tools to answer questions. After using tools and getting results, provide a clear, natural language answer to the user. Do not make repeated tool calls with the same tool."),
+        HumanMessage(content=query)
+    ]    
+    response = llm_w_tools.invoke(messages)
+    messages.append(response)
+    
+    max_iterations = 5
+    iteration = 0
+    
+    while hasattr(response, "tool_calls") and response.tool_calls and iteration < max_iterations:
+        iteration += 1
+        
+        for tool_call in response.tool_calls:
+            print(response)
+            tool_name = tool_call["name"]
+            args = tool_call["args"]
+            tool_id = tool_call["id"]
+            
+            selected_tool = {
+                "what_the_duck": Tools.what_the_duck,
+                "wiki": Tools.wiki,
+                "weather": Tools.weather,
+                "news":Tools.news
+            }.get(tool_name)
+            
+            if selected_tool:
+                try:
+                    tool_output = selected_tool.invoke(args)
+                    
+                    messages.append(
+                        ToolMessage(
+                            content=str(tool_output),
+                            name=tool_name,
+                            tool_call_id=tool_id
+                        )
+                    )
+                except Exception as e:
+                    messages.append(
+                        ToolMessage(
+                            content=f"Error: {str(e)}",
+                            name=tool_name,
+                            tool_call_id=tool_id
+                        )
+                    )
+        
+        response = llm_w_tools.invoke(messages)
+        messages.append(response)
+    
+    return response.content
 
-wiki_api = WikipediaAPIWrapper(top_k_results=5,doc_content_chars_max=50)
-wiki_tool = WikipediaQueryRun(api_wrapper=wiki_api)
-
-duck_tool = DuckDuckGoSearchRun()
-
-tools = [multiplication, addition, wiki_tool, duck_tool]
-
-llm_with_tools = model.bind_tools(tools)
-
-query = "multiply 6 and 5 and then add the answer with 10"
-
-message = [HumanMessage(query)]
-
-res = llm_with_tools.invoke(message)
-
-while hasattr(res, "tool_calls") and res.tool_calls:
-    res = message_for_AI(res, message)
-
-print(res.content)
+print(process_query("weather in kashmir"))   
