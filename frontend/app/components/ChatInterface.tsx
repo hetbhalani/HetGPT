@@ -15,14 +15,19 @@ export function ChatInterface() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [hasStarted, setHasStarted] = useState(false);
 
-    const handleSendMessage = (content: string) => {
+    const handleSendMessage = (content: string, file?: File) => {
         if (!hasStarted) setHasStarted(true);
+
+        let messageContent = content;
+        if (file) {
+            messageContent += `\n[Attached: ${file.name}]`;
+        }
 
         // Add user message
         const userMessage: Message = {
             id: Date.now().toString(),
             role: "user",
-            content,
+            content: messageContent,
         };
         setMessages((prev) => [...prev, userMessage]);
 
@@ -49,21 +54,21 @@ export function ChatInterface() {
                 <div className="flex-1 overflow-y-auto scroll-smooth">
                     {!hasStarted ? (
                         <div className="flex h-full w-full flex-col items-center justify-center gap-8 p-8 text-center animate-fadeIn">
-                            <h1 className="text-5xl md:text-6xl font-bold tracking-tight">
+                            <h1 className="text-6xl md:text-6xl font-bold tracking-tight">
                                 Welcome to{" "}
                                 <span
                                     className="text-transparent bg-clip-text"
                                     style={{
-                                        backgroundImage: "linear-gradient(to right, #4b0082, #800080, #ff4500, #ffa500)",
+                                        backgroundImage: "linear-gradient(to right, #4b0082, #800080, #ff4500, #ffa500, #ff4500, #800080, #4b0082)",
                                         backgroundSize: "200% auto",
-                                        animation: "gradientMove 5s linear infinite",
+                                        animation: "gradientMove 3s linear infinite",
                                         WebkitBackgroundClip: "text",
                                         WebkitTextFillColor: "transparent"
                                     }}
                                 >
                                     HetGPT
                                 </span>
-                                .
+
                             </h1>
                             <div className="w-full max-w-2xl">
                                 <InputArea onSend={handleSendMessage} />

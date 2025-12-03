@@ -1,4 +1,4 @@
-from tools import Tools
+from .tools import Tools
 from langchain_core.messages import HumanMessage, ToolMessage, AIMessage, SystemMessage
 from langchain_ollama import ChatOllama
 from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
@@ -72,4 +72,4 @@ def process_query(query):
     
     return response.content
 
-print(process_query("weather in kashmir"))   
+# print(process_query("weather in kashmir"))   
