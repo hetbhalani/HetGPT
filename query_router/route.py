@@ -6,6 +6,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from Tools.tool_routing import process_query
+from RAG.rag_final import RAG_ans
 
 load_dotenv()
 
@@ -50,10 +51,18 @@ def plan_task(query: str):
     except:
         return "kuchh to gadbad hai"
 
-def route(query: str):
+def route(query: str, hasFile: bool = False):
     res = ""
     data = plan_task(query)
     print(data)
+    
+    if hasFile:
+        try:
+            return RAG_ans(query)
+        except:
+            print("Something went wrong")
+            return None
+            
     for i in data:
         if i['route'] == 'TOOLS':
             # print("call Tools model")
@@ -67,9 +76,9 @@ def route(query: str):
     return res
 
 
-query = "tell me where is the largest statue is located add 200kg to the weight of the statue, and also tell me how to write a code to add two numbers"
+query = "what is this document about and also tell me what are the best thing about this guy, also tell me what is 2+2"
 
-print(route(query))
+print(route(query, hasFile=True))
 
 # a = [{'task': 'get the name of the president of India', 'route': 'CS'}, {'task': 'get top 5 facts about the president of India', 'route': 'TOOLS'}]
 
