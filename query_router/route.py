@@ -20,26 +20,26 @@ model = ChatHuggingFace(llm=llm)
 planner_prompt = PromptTemplate(
     input_variables=["query"],
     template="""
-You are a Task Planner for a multi-model system.
-Your job is to break the user query into one or more subtasks and mark each with the correct route.
+        You are a Task Planner for a multi-model system.
+        Your job is to break the user query into one or more subtasks and mark each with the correct route.
 
-Output a JSON array. 
-Each item must contain:
-- "task": the specific subtask
-- "route": one of ["CS", "TOOLS"]
+        Output a JSON array. 
+        Each item must contain:
+        - "task": the specific subtask
+        - "route": one of ["CS", "TOOLS"]
 
-DEFINITIONS (use these exactly):
-- "CS": programming, code, algorithm design, software-engineering questions, debugging, or conceptual Computer Science explanations.
-- "TOOLS": any real-world factual data, current or changable info, news, web/search, weather, Wikipedia facts,
-calculation with context(e.g. what is the height of the eiffel tower and add it with 400), world facts (who, when, where), or anything like that.
+        DEFINITIONS (use these exactly):
+        - "CS": programming, code, algorithm design, software-engineering questions, debugging, or conceptual Computer Science explanations.
+        - "TOOLS": any real-world factual data, current or changable info, news, web/search, weather, Wikipedia facts,
+        calculation with context(e.g. what is the height of the eiffel tower and add it with 400), world facts (who, when, where), or anything like that.
 
-IMPORTANT RULES:
-1. If unsure between CS and TOOLS, choose "TOOLS".
-2. Split query into subtasks.
+        IMPORTANT RULES:
+        1. If unsure between CS and TOOLS, choose "TOOLS".
+        2. Split query into subtasks.
 
-query: "{query}"
-Respond ONLY in valid JSON.
-"""
+        query: "{query}"
+        Respond ONLY in valid JSON.
+    """
 )
 
 def plan_task(query: str):
@@ -47,15 +47,27 @@ def plan_task(query: str):
     print(raw)
     print("=================================================================")
     try:
-        return json.loads(raw.content)
-    except:
-        return "kuchh to gadbad hai"
+        content = raw.content.strip()
+
+        content = content.replace("```json", "").replace("```", "").strip()
+
+        if content.startswith("{") or content.startswith("["):
+            pass
+        else:
+            start = content.find("[")
+            end = content.rfind("]") + 1
+            content = content[start:end]
+
+        return json.loads(content)
+    
+    except Exception as e:
+        print(e)
+        return None
 
 def route(query: str, hasFile: bool = False):
     res = ""
-    data = plan_task(query)
-    print(data)
-    
+    context = {}
+
     if hasFile:
         try:
             return RAG_ans(query)
@@ -63,22 +75,34 @@ def route(query: str, hasFile: bool = False):
             print("Something went wrong")
             return None
             
+    data = plan_task(query)
+    print(data)
+    
     for i in data:
+        task = i['task']
+        
+        if context:
+            task += f'\n\nCONTEXT (use if needed): {json.dumps(context)}'
+        
         if i['route'] == 'TOOLS':
             # print("call Tools model")
-            res += process_query(i['task'])
+            out = process_query(task)
         elif i['route'] == 'CS':
             response = model.invoke(i['task'])
-            res += response.content if hasattr(response, 'content') else str(response)
+            out = response.content if hasattr(response, 'content') else str(response)
         else:
             print("Something went wrong")
         # print(type(i))
+        
+        context[i['task']] = out
+        
+        res += str(out) + '\n\n'
     return res
 
 
-query = "what is this document about and also tell me what are the best thing about this guy, also tell me what is 2+2"
+query = "which statue is the largest in the world and add 200 kg to the weight of the statue and also tell me what is 2 + 2?"
 
-print(route(query, hasFile=True))
+print(route(query))
 
 # a = [{'task': 'get the name of the president of India', 'route': 'CS'}, {'task': 'get top 5 facts about the president of India', 'route': 'TOOLS'}]
 
