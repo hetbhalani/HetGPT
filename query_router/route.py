@@ -75,13 +75,13 @@ def plan_task(query: str):
         print(e)
         return None
 
-def route(query: str, hasFile: bool = False):
+def route(query: str, path: str = None):
     res = ""
     context = {}
 
-    if hasFile:
+    if path:
         try:
-            return RAG_ans(query)
+            return RAG_ans(query, path)
         except:
             print("Something went wrong")
             return None
@@ -111,9 +111,9 @@ def route(query: str, hasFile: bool = False):
     return res
 
 
-query = "what is the name of the guy in this document?"
+# query = "what is the name of the guy in this document?"
 
-print(route(query))
+# print(route(query))
 
 # a = [{'task': 'get the name of the president of India', 'route': 'CS'}, {'task': 'get top 5 facts about the president of India', 'route': 'TOOLS'}]
 

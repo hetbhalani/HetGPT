@@ -63,12 +63,7 @@ parser = StrOutputParser()
 
 # if not file:
 #     st.stop()
-pdf_path = os.path.join(os.path.dirname(__file__), 'Het_Bhalani_Resume.pdf')
-with open(pdf_path, 'rb') as fp:
-    file = fp.read()
 
-db = get_vector_db(file)
-retriver = db.as_retriever(search_type="similarity", search_kwargs={"k": 4})
 
 def get_chat_history():
     last_messages = history[-8:] #context window of 4 pairs
@@ -78,9 +73,16 @@ def get_chat_history():
         chat_history += f"{role}: {msg.content}\n"
     return chat_history
 
-def RAG_ans(query: str):
+def RAG_ans(query: str, path: str):
     chat_history = get_chat_history()
-            
+    # pdf_path = os.path.join(os.path.dirname(__file__), 'Het_Bhalani_Resume.pdf')
+    
+    with open(path, 'rb') as fp:
+        file = fp.read()
+
+    db = get_vector_db(file)
+    retriver = db.as_retriever(search_type="similarity", search_kwargs={"k": 4})
+                
     docs = retriver.invoke(query)
     context = "\n\n".join([doc.page_content for doc in docs])
     
