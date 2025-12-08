@@ -4,7 +4,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 import streamlit as st
 
-@st.cache_resource
+# @st.cache_resource
 def get_vector_db(file_bytes):
     with open("temp.pdf", "wb") as f:
         f.write(file_bytes)

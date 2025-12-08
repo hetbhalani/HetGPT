@@ -7,15 +7,16 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.output_parsers import StrOutputParser
 from dotenv import load_dotenv
 import streamlit as st
-from vector_db import get_vector_db
+import os
+from .vector_db import get_vector_db
 
 load_dotenv()
 
 history = [] 
 
-st.title("RAG Test")
+# st.title("RAG Test")
 
-file = st.file_uploader("Enter a pdf")
+# file = st.file_uploader("Enter a pdf")
 
 llm = HuggingFaceEndpoint(
     repo_id='meta-llama/Llama-3.1-8B-Instruct',
@@ -60,10 +61,13 @@ model = ChatHuggingFace(llm=llm)
 
 parser = StrOutputParser()
 
-if not file:
-    st.stop()
+# if not file:
+#     st.stop()
+pdf_path = os.path.join(os.path.dirname(__file__), 'Het_Bhalani_Resume.pdf')
+with open(pdf_path, 'rb') as fp:
+    file = fp.read()
 
-db = get_vector_db(file.read())
+db = get_vector_db(file)
 retriver = db.as_retriever(search_type="similarity", search_kwargs={"k": 4})
 
 def get_chat_history():
@@ -94,11 +98,11 @@ def RAG_ans(query: str):
     return answer
 
 
-query = st.chat_input("ask something...")
+# query = st.chat_input("ask something...")
 
-if query:
-    res = RAG_ans(query)
-    st.write(res)
+# if query:
+#     res = RAG_ans(query)
+#     st.write(res)
     
 # query = input("Human: ")
 # res = RAG_ans(query)

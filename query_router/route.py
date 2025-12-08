@@ -18,28 +18,49 @@ llm = HuggingFaceEndpoint(
 model = ChatHuggingFace(llm=llm)
 
 planner_prompt = PromptTemplate(
-    input_variables=["query"],
-    template="""
-        You are a Task Planner for a multi-model system.
-        Your job is to break the user query into one or more subtasks and mark each with the correct route.
+        input_variables=["query"],
+        template="""
+            You are a Task Planner for a multi-model AI system.
+            Your job is to break the user query into one or more independent subtasks and assign a route to each.
 
-        Output a JSON array. 
-        Each item must contain:
-        - "task": the specific subtask
-        - "route": one of ["CS", "TOOLS"]
+            ### OUTPUT REQUIREMENTS:
+            - Output MUST be ONLY a valid JSON array. No explanation, no notes, no natural language.
+            - Each element MUST contain exactly two keys: "task" and "route".
+            - Tasks must be short imperative commands.
+            - If there are NO explicit tasks in the query, return [].
 
-        DEFINITIONS (use these exactly):
-        - "CS": programming, code, algorithm design, software-engineering questions, debugging, or conceptual Computer Science explanations.
-        - "TOOLS": any real-world factual data, current or changable info, news, web/search, weather, Wikipedia facts,
-        calculation with context(e.g. what is the height of the eiffel tower and add it with 400), world facts (who, when, where), or anything like that.
+            ### ABSOLUTE RULES (MUST FOLLOW):
+            - NEVER infer or invent additional tasks that are not explicitly and clearly asked by the user.
+            - NEVER add instructional or general-explanation tasks unless directly requested.
+            - NEVER assume the user wants code, explanation, or strategy unless they explicitly ask.
+            - If a single clear question exists, produce only ONE task.
+            - Do NOT add tasks like "Explain", "Describe", "Improve", "Fix" unless those words appear in the query.
+            - Do NOT split the Task if NOT needed, only split when there are multiple questions in the query
+            
+            ### ROUTE DEFINITIONS:
+            - "CS" → programming, code, debugging, algorithm design, or Computer Science conceptual explanations.
+            - "TOOLS" → real-world lookup, search, factual information, news, weather, prices, names, current data, or calculations based on real-world values.
+            - If unsure, choose "TOOLS".
 
-        IMPORTANT RULES:
-        1. If unsure between CS and TOOLS, choose "TOOLS".
-        2. Split query into subtasks.
+            ### SPLITTING RULES:
+            - Split only when the query clearly contains multiple separate instructions ("and", "also", "then").
+            - Do NOT split based on assumptions.
 
-        query: "{query}"
-        Respond ONLY in valid JSON.
-    """
+            ### JSON EXAMPLE:
+            [
+                {{
+                    "task": "Find the current weather in Junagadh",
+                    "route": "TOOLS"
+                }},
+                {{
+                    "task": "Write Python code to add two numbers",
+                    "route": "CS"
+                }}
+            ]
+            User Query: "{query}"
+            Respond ONLY with the JSON array.
+
+        """
 )
 
 def plan_task(query: str):
@@ -48,16 +69,6 @@ def plan_task(query: str):
     print("=================================================================")
     try:
         content = raw.content.strip()
-
-        content = content.replace("```json", "").replace("```", "").strip()
-
-        if content.startswith("{") or content.startswith("["):
-            pass
-        else:
-            start = content.find("[")
-            end = content.rfind("]") + 1
-            content = content[start:end]
-
         return json.loads(content)
     
     except Exception as e:
@@ -100,7 +111,7 @@ def route(query: str, hasFile: bool = False):
     return res
 
 
-query = "which statue is the largest in the world and add 200 kg to the weight of the statue and also tell me what is 2 + 2?"
+query = "what is the name of the guy in this document?"
 
 print(route(query))
 
