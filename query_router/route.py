@@ -1,21 +1,29 @@
 from langchain_core.prompts import PromptTemplate
 from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
+from langchain_ollama import ChatOllama
 from dotenv import load_dotenv
 import json
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from Tools.tool_routing import process_query
+from Tools.tool_routing import tool_call
 from RAG.rag_final import RAG_ans
+from LLM.cs_model import cs_model_call
 
 load_dotenv()
 
-llm = HuggingFaceEndpoint(
-    repo_id='meta-llama/Llama-3.1-8B-Instruct',
-    task='conversational'
-)
+# llm = HuggingFaceEndpoint(
+#     repo_id='meta-llama/Llama-3.1-8B-Instruct',
+#     task='conversational'
+# )
 
-model = ChatHuggingFace(llm=llm)
+# model = ChatHuggingFace(llm=llm)
+
+model = ChatOllama(
+    model="qwen2.5:7b-instruct",
+    base_url="https://marvel-prince-sister-deviation.trycloudflare.com/",
+    temperature=0,
+)
 
 planner_prompt = PromptTemplate(
         input_variables=["query"],
@@ -97,10 +105,11 @@ def route(query: str, path: str = None):
         
         if i['route'] == 'TOOLS':
             # print("call Tools model")
-            out = process_query(task)
+            out = tool_call(task)
+            
         elif i['route'] == 'CS':
-            response = model.invoke(i['task'])
-            out = response.content if hasattr(response, 'content') else str(response)
+            out = cs_model_call(task)
+            
         else:
             print("Something went wrong")
         # print(type(i))
@@ -111,7 +120,7 @@ def route(query: str, path: str = None):
     return res
 
 
-# query = "what is the name of the guy in this document?"
+# query = "write me a code to add two numbers?"
 
 # print(route(query))
 

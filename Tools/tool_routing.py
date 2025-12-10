@@ -3,24 +3,24 @@ from langchain_core.messages import HumanMessage, ToolMessage, AIMessage, System
 from langchain_ollama import ChatOllama
 from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
 
-model = HuggingFaceEndpoint(
-    repo_id='moonshotai/Kimi-K2-Thinking',
-    task='text-generation'
-)
-
-llm = ChatHuggingFace(llm=model)
-
-
-# llm = ChatOllama(
-#     model="qwen2.5:7b-instruct",
-#     base_url="https://clark-spouse-belkin-started.trycloudflare.com/",
-#     temperature=0,
+# model = HuggingFaceEndpoint(
+#     repo_id='moonshotai/Kimi-K2-Thinking',
+#     task='text-generation'
 # )
+
+# llm = ChatHuggingFace(llm=model)
+
+
+llm = ChatOllama(
+    model="qwen2.5:7b-instruct",
+    base_url="https://marvel-prince-sister-deviation.trycloudflare.com/",
+    temperature=0,
+)
     
 tools = [Tools.what_the_duck, Tools.wiki, Tools.weather, Tools.news]
 llm_w_tools = llm.bind_tools(tools)
 
-def process_query(query):
+def tool_call(query):
     messages = [
         SystemMessage(content="You are a helpful assistant. Use the available tools to answer questions. After using tools and getting results, provide a clear, natural language answer to the user. Do not make repeated tool calls with the same tool."),
         HumanMessage(content=query)
