@@ -9,21 +9,24 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from Tools.tool_routing import tool_call
 from RAG.rag_final import RAG_ans
 from LLM.cs_model import cs_model_call
+from typing import List, Dict
 
 load_dotenv()
 
-# llm = HuggingFaceEndpoint(
-#     repo_id='meta-llama/Llama-3.1-8B-Instruct',
-#     task='conversational'
-# )
-
-# model = ChatHuggingFace(llm=llm)
-
-model = ChatOllama(
-    model="qwen2.5:7b-instruct",
-    base_url="https://marvel-prince-sister-deviation.trycloudflare.com/",
-    temperature=0,
+llm = HuggingFaceEndpoint(
+    repo_id='meta-llama/Llama-3.1-8B-Instruct',
+    task='conversational'
 )
+
+model = ChatHuggingFace(llm=llm)
+
+# GENERAL_MODEL = os.getenv("GENERAL_MODEL")
+
+# model = ChatOllama(
+#     model="qwen2.5:7b-instruct",
+#     base_url=GENERAL_MODEL,
+#     temperature=0,
+# )
 
 planner_prompt = PromptTemplate(
         input_variables=["query"],
@@ -47,7 +50,7 @@ planner_prompt = PromptTemplate(
             
             ### ROUTE DEFINITIONS:
             - "CS" → programming, code, debugging, algorithm design, or Computer Science conceptual explanations.
-            - "TOOLS" → real-world lookup, search, factual information, news, weather, prices, names, current data, or calculations based on real-world values.
+            - "TOOLS" → real-world lookup, facts, information about something, search, factual information, news, weather, prices, names, current data, or calculations based on real-world values.
             - If unsure, choose "TOOLS".
 
             ### SPLITTING RULES:
@@ -83,18 +86,31 @@ def plan_task(query: str):
         print(e)
         return None
 
-def route(query: str, path: str = None):
+def route(query: str, file_path: str = None, session_history: List[Dict] = None):
     res = ""
     context = {}
 
-    if path:
+    # RAG (when file upload)
+    if file_path:
         try:
-            return RAG_ans(query, path)
-        except:
-            print("Something went wrong")
+            return RAG_ans(query, file_path)
+        except Exception as e:
+            print(f"Something went wrong: {e}")
             return None
             
-    data = plan_task(query)
+            
+    if session_history:
+        print(f"+++++++++++++++++++++++++++++++++++++{session_history}++++++++++++++++++++++++++++++++++++++++")
+        recent_history = session_history[-10:]
+        history_str = '\n'.join([
+            f"{msg['role'].upper()}: {msg['content']}" 
+            for msg in recent_history
+        ])
+        query_w_context = f"CONVERSATION HISTORY:\n{history_str}\n\nCURRENT QUERY: {query}"
+    else:
+        query_w_context = query
+        
+    data = plan_task(query_w_context)
     print(data)
     
     for i in data:
@@ -105,10 +121,10 @@ def route(query: str, path: str = None):
         
         if i['route'] == 'TOOLS':
             # print("call Tools model")
-            out = tool_call(task)
+            out = tool_call(task, session_history)
             
         elif i['route'] == 'CS':
-            out = cs_model_call(task)
+            out = cs_model_call(task, session_history)
             
         else:
             print("Something went wrong")

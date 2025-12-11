@@ -1,56 +1,77 @@
 "use client";
-
 import { useState } from "react";
+import { v4 as uuidv4 } from 'uuid';
 import { Navbar } from "./Navbar";
 import { MessageBubble } from "./MessageBubble";
 import { InputArea } from "./InputArea";
-
 interface Message {
     id: string;
     role: "user" | "assistant";
     content: string;
 }
-
 export function ChatInterface() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [hasStarted, setHasStarted] = useState(false);
-
-    const handleSendMessage = (content: string, file?: File) => {
+    const [sessionId] = useState(() => uuidv4()); // Generate once per session
+    const [isLoading, setIsLoading] = useState(false);
+    const handleSendMessage = async (content: string, file?: File) => {
         if (!hasStarted) setHasStarted(true);
-
-        let messageContent = content;
-        if (file) {
-            messageContent += `\n[Attached: ${file.name}]`;
-        }
-
-        // Add user message
+        // Add user message to UI
         const userMessage: Message = {
             id: Date.now().toString(),
             role: "user",
-            content: messageContent,
+            content: file ? `${content}\n[Attached: ${file.name}]` : content,
         };
         setMessages((prev) => [...prev, userMessage]);
+        setIsLoading(true);
+        try {
+            // Call backend with session ID
+            const response = await fetch('http://localhost:8000/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    query: content,
+                    session_id: sessionId,
+                    path: null
+                })
+            });
+            const data = await response.json();
 
-        // Simulate AI response (mock)
-        setTimeout(() => {
+            // Extract text content safely
+            let aiContent: string;
+            if (typeof data === 'string') {
+                aiContent = data;
+            } else if (data.response) {
+                aiContent = data.response;
+            } else if (data.detail) {
+                aiContent = `Error: ${data.detail}`;
+            } else {
+                aiContent = JSON.stringify(data);
+            }
+
+            // Add AI response
             const aiMessage: Message = {
                 id: (Date.now() + 1).toString(),
                 role: "assistant",
-                content: "This is a simulated response from HetGPT. I am designed to look just like the real thing!",
+                content: aiContent,
             };
             setMessages((prev) => [...prev, aiMessage]);
-        }, 1000);
+        } catch (error) {
+            console.error('Error:', error);
+            const errorMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                role: "assistant",
+                content: "Sorry, something went wrong. Please try again.",
+            };
+            setMessages((prev) => [...prev, errorMessage]);
+        } finally {
+            setIsLoading(false);
+        }
     };
-
     return (
         <div className="flex h-screen w-full overflow-hidden bg-background text-foreground relative">
-
-            {/* Navbar */}
             <Navbar />
-
             <main className="relative flex h-full w-full flex-col overflow-hidden pt-16">
-
-                {/* Chat Area */}
                 <div className="flex-1 overflow-y-auto scroll-smooth">
                     {!hasStarted ? (
                         <div className="flex h-full w-full flex-col items-center justify-center gap-8 p-8 text-center animate-fadeIn">
@@ -68,7 +89,6 @@ export function ChatInterface() {
                                 >
                                     HetGPT
                                 </span>
-
                             </h1>
                             <div className="w-full max-w-2xl">
                                 <InputArea onSend={handleSendMessage} />
@@ -80,12 +100,13 @@ export function ChatInterface() {
                                 {messages.map((msg) => (
                                     <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
                                 ))}
+                                {isLoading && (
+                                    <div className="text-muted-foreground">Thinking...</div>
+                                )}
                             </div>
                         </div>
                     )}
                 </div>
-
-                {/* Input Area (Fixed at bottom when started) */}
                 {hasStarted && (
                     <div className="absolute bottom-0 left-0 right-0 flex justify-center bg-gradient-to-t from-background via-background to-transparent pt-10 pb-4 animate-slideUp">
                         <div className="w-full max-w-2xl px-4">

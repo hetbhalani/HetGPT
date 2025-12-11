@@ -2,29 +2,43 @@ from .tools import Tools
 from langchain_core.messages import HumanMessage, ToolMessage, AIMessage, SystemMessage
 from langchain_ollama import ChatOllama
 from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
+import os
+from dotenv import load_dotenv
 
-# model = HuggingFaceEndpoint(
-#     repo_id='moonshotai/Kimi-K2-Thinking',
-#     task='text-generation'
-# )
+load_dotenv()
 
-# llm = ChatHuggingFace(llm=model)
-
-
-llm = ChatOllama(
-    model="qwen2.5:7b-instruct",
-    base_url="https://marvel-prince-sister-deviation.trycloudflare.com/",
-    temperature=0,
+model = HuggingFaceEndpoint(
+    repo_id='moonshotai/Kimi-K2-Thinking',
+    task='text-generation'
 )
+
+llm = ChatHuggingFace(llm=model)
+
+# GENERAL_MODEL = os.getenv("GENERAL_MODEL")
+
+# llm = ChatOllama(
+#     model="qwen2.5:7b-instruct",
+#     base_url=GENERAL_MODEL,
+#     temperature=0,
+# )
     
 tools = [Tools.what_the_duck, Tools.wiki, Tools.weather, Tools.news]
 llm_w_tools = llm.bind_tools(tools)
 
-def tool_call(query):
+def tool_call(query, session_history=None):
     messages = [
         SystemMessage(content="You are a helpful assistant. Use the available tools to answer questions. After using tools and getting results, provide a clear, natural language answer to the user. Do not make repeated tool calls with the same tool."),
-        HumanMessage(content=query)
     ]    
+    
+    if session_history:
+        for msg in session_history[-6:]:
+            if msg['role'] == 'user':
+                messages.append(HumanMessage(content=msg['content']))
+            elif msg['role'] == 'ai':
+                messages.append(AIMessage(content=msg['content']))
+    
+    messages.append(HumanMessage(content=query))
+    
     response = llm_w_tools.invoke(messages)
     messages.append(response)
     

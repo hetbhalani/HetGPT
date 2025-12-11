@@ -1,9 +1,7 @@
-from langchain_community.document_loaders import PyMuPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_ollama import ChatOllama
 from langchain_huggingface import HuggingFaceEmbeddings, HuggingFaceEndpoint, ChatHuggingFace
 from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain_community.vectorstores import FAISS
 from langchain_core.output_parsers import StrOutputParser
 from dotenv import load_dotenv
 import streamlit as st
@@ -22,6 +20,16 @@ llm = HuggingFaceEndpoint(
     repo_id='meta-llama/Llama-3.1-8B-Instruct',
     task='text-generation'
 )
+
+model = ChatHuggingFace(llm=llm)
+
+# GENERAL_MODEL = os.getenv("GENERAL_MODEL")
+
+# model = ChatOllama(
+#     model="qwen2.5:7b-instruct",
+#     base_url=GENERAL_MODEL,
+#     temperature=0,
+# )
 
 prompt = PromptTemplate(
     template="""
@@ -55,9 +63,6 @@ prompt = PromptTemplate(
     """,
     input_variables=['query', 'context', 'chat_history']
 )
-
-
-model = ChatHuggingFace(llm=llm)
 
 parser = StrOutputParser()
 
