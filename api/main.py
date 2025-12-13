@@ -1,6 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 import sys
 import os
@@ -27,6 +26,7 @@ app.add_middleware(
 
 conversation_manager = ConversationManager()           
 
+# SignUp
 @app.post('/auth/signup', response_model=schema.UserResponse)
 def user_signup(user: schema.UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(model.Users).filter(model.Users.email == user.email).first()
@@ -49,6 +49,7 @@ def user_signup(user: schema.UserCreate, db: Session = Depends(get_db)):
     
     return new_user
 
+# LogIn
 @app.post('/auth/login')
 def user_login(user: schema.UserLogin, db: Session = Depends(get_db)):
     db_user = db.query(model.Users).filter(model.Users.email == user.email).first()
@@ -61,10 +62,12 @@ def user_login(user: schema.UserLogin, db: Session = Depends(get_db)):
         
     return {"message": "Login successful", "user_id": db_user.id, "name": db_user.name}
         
+# Get all users
 @app.get('/users')
 def get_all_users(db: Session = Depends(get_db)):
     return db.query(model.Users).all()
 
+# Get user by id
 @app.get('/users/{user_id}', response_model=schema.UserResponse)
 def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
     db_user = db.query(model.Users).filter(model.Users.id == user_id).first()
@@ -72,7 +75,7 @@ def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
 
-
+# Update the context
 @app.put("/users/{user_id}/context")
 def update_context(user_id: int, context_data: schema.ContextUpdate, db: Session = Depends(get_db)):
     db_user = db.query(model.Users).filter(model.Users.id == user_id).first()
@@ -83,7 +86,7 @@ def update_context(user_id: int, context_data: schema.ContextUpdate, db: Session
     db.commit()
     return {"message": "Context updated successfully"}
 
-
+#Delete user
 @app.delete("/users/{user_id}")
 def delete_user(user_id: int, db: Session = Depends(get_db)):
     db_user = db.query(model.Users).filter(model.Users.id == user_id).first()
@@ -94,6 +97,7 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "User deleted successfully"}
 
+# chat with LLM
 @app.post('/chat')
 def chat(req : schema.Chat):
     if req.query:
