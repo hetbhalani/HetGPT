@@ -4,19 +4,28 @@ import { v4 as uuidv4 } from 'uuid';
 import { Navbar } from "./Navbar";
 import { MessageBubble } from "./MessageBubble";
 import { InputArea } from "./InputArea";
+import { AuthModal } from "./AuthModal";
+import { useAuth } from "../context/AuthContext";
+
 interface Message {
     id: string;
     role: "user" | "assistant";
     content: string;
 }
+
 export function ChatInterface() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [hasStarted, setHasStarted] = useState(false);
-    const [sessionId] = useState(() => uuidv4()); // Generate once per session
+    const [sessionId] = useState(() => uuidv4());
     const [isLoading, setIsLoading] = useState(false);
-    const handleSendMessage = async (content: string, file?: File) => {
+    const [showAuthModal, setShowAuthModal] = useState(false);
+    const [pendingMessage, setPendingMessage] = useState<{ content: string; file?: File } | null>(null);
+
+    const { isAuthenticated, checkAuth } = useAuth();
+
+    const sendMessage = async (content: string, file?: File) => {
         if (!hasStarted) setHasStarted(true);
-        // Add user message to UI
+
         const userMessage: Message = {
             id: Date.now().toString(),
             role: "user",
@@ -24,11 +33,12 @@ export function ChatInterface() {
         };
         setMessages((prev) => [...prev, userMessage]);
         setIsLoading(true);
+
         try {
-            // Call backend with session ID
             const response = await fetch('http://localhost:8000/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     query: content,
                     session_id: sessionId,
@@ -37,7 +47,6 @@ export function ChatInterface() {
             });
             const data = await response.json();
 
-            // Extract text content safely
             let aiContent: string;
             if (typeof data === 'string') {
                 aiContent = data;
@@ -49,7 +58,6 @@ export function ChatInterface() {
                 aiContent = JSON.stringify(data);
             }
 
-            // Add AI response
             const aiMessage: Message = {
                 id: (Date.now() + 1).toString(),
                 role: "assistant",
@@ -68,6 +76,32 @@ export function ChatInterface() {
             setIsLoading(false);
         }
     };
+
+    const handleSendMessage = async (content: string, file?: File) => {
+        // Check authentication on first message
+        if (!hasStarted) {
+            const isAuthed = await checkAuth();
+            if (!isAuthed) {
+                // Store pending message and show auth modal
+                setPendingMessage({ content, file });
+                setShowAuthModal(true);
+                return;
+            }
+        }
+
+        // User is authenticated, send the message
+        sendMessage(content, file);
+    };
+
+    const handleAuthSuccess = () => {
+        setShowAuthModal(false);
+        // Send the pending message if there was one
+        if (pendingMessage) {
+            sendMessage(pendingMessage.content, pendingMessage.file);
+            setPendingMessage(null);
+        }
+    };
+
     return (
         <div className="flex h-screen w-full overflow-hidden bg-background text-foreground relative">
             <Navbar />
@@ -115,6 +149,16 @@ export function ChatInterface() {
                     </div>
                 )}
             </main>
+
+            {/* Auth Modal */}
+            <AuthModal
+                isOpen={showAuthModal}
+                onClose={() => {
+                    setShowAuthModal(false);
+                    setPendingMessage(null);
+                }}
+                onSuccess={handleAuthSuccess}
+            />
         </div>
     );
 }
