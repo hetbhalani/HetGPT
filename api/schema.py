@@ -26,3 +26,11 @@ class Chat(BaseModel):
     query: str
     path: Optional[str] = None
     session_id: str
+    
+class TokenData(BaseModel):
+    id: Optional[int] = None
+    email: Optional[str] = None
+
+class AuthResponse(BaseModel):
+    message: str
+    user: UserResponse

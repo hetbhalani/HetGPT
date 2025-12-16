@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import sys
@@ -26,9 +26,36 @@ app.add_middleware(
 
 conversation_manager = ConversationManager()           
 
+#cookie setting
+COOKIE_NAME = "access_token"
+COOKIE_MAX_AGE = 60 * 60 * 24 * 7
+
+def get_current_user_cookie(request: Request, db: Session = Depends(get_db)):
+    token = request.cookies.get(COOKIE_NAME)
+    
+    if not token:
+        return None
+    
+    payload = auth.verify_token()
+    
+    if not payload:
+        return None
+    
+    user_id = payload.get('id')
+    if not user_id:
+        return None
+    
+    user = db.query(model.Users).filter(model.Users.id == user_id).first()
+    return user
+
+def get_user_with_error(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user_cookie(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not Authenticated")    
+
 # SignUp
 @app.post('/auth/signup', response_model=schema.UserResponse)
-def user_signup(user: schema.UserCreate, db: Session = Depends(get_db)):
+def user_signup(user: schema.UserCreate, response: Response, db: Session = Depends(get_db)):
     db_user = db.query(model.Users).filter(model.Users.email == user.email).first()
     
     if db_user:
@@ -47,11 +74,26 @@ def user_signup(user: schema.UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     
-    return new_user
+    access_token = auth.create_access_token(data = {"id": new_user.id, "email": new_user.email})
+    
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=access_token,
+        max_age=COOKIE_MAX_AGE,
+        httponly=True,
+        secure=False
+    )
+    
+    return {
+        "message": "Signup successful",
+        "id": new_user.id,
+        "name": new_user.name,
+        "email": new_user.email
+    }
 
 # LogIn
 @app.post('/auth/login')
-def user_login(user: schema.UserLogin, db: Session = Depends(get_db)):
+def user_login(user: schema.UserLogin, response: Response, db: Session = Depends(get_db)):
     db_user = db.query(model.Users).filter(model.Users.email == user.email).first()
     
     if not db_user:
@@ -60,8 +102,33 @@ def user_login(user: schema.UserLogin, db: Session = Depends(get_db)):
     if not auth.verify_password(user.password, db_user.password):
         raise HTTPException(status_code=400, detail="Invalid credentials")
         
-    return {"message": "Login successful", "user_id": db_user.id, "name": db_user.name}
+    access_token = auth.create_access_token(
+        data={"user_id": db_user.id, "email": db_user.email}
+    )
+    
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=access_token,
+        max_age=COOKIE_MAX_AGE,
+        httponly=True,
+        secure=False 
+    )
+    
+    return {"message": "Login successful", "id": db_user.id, "name": db_user.name}
         
+@app.get('/auth/me')
+def get_me(current_user = Depends(get_user_with_error)):
+    return {
+        "id": current_user.id,
+        "name": current_user.name,
+        "email": current_user.email
+    }
+
+@app.post('/auth/logout')
+def logout(response: Response):
+    response.delete_cookie(key=COOKIE_NAME)
+    return {"message": "Logged out successfully"}
+
 # Get all users
 @app.get('/users')
 def get_all_users(db: Session = Depends(get_db)):
