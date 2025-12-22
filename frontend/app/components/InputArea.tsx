@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Paperclip, ArrowUp, Mic } from "lucide-react";
-import { clsx } from "clsx";
+import clsx from "clsx";
 
 interface InputAreaProps {
     onSend: (message: string, file?: File) => void;
@@ -62,8 +62,7 @@ export function InputArea({ onSend }: InputAreaProps) {
     };
 
     return (
-        <div className="mx-auto w-full">
-            <div className="relative flex w-full flex-col rounded-3xl border border-border bg-muted/50 backdrop-blur-xl transition-all duration-300 focus-within:border-purple-500/30 focus-within:bg-muted/70 focus-within:shadow-md focus-within:shadow-purple-500/10">
+        <div className="relative flex w-full flex-col rounded-3xl border border-slate-700/80 bg-slate-950/80 backdrop-blur-xl transition-all duration-300 focus-within:border-violet-500 focus-within:bg-slate-900/90 focus-within:shadow-[0_18px_40px_rgba(0,0,0,0.9)]">
 
                 {/* Selected File Display (Compact Card) */}
                 {selectedFile && (
@@ -95,8 +94,8 @@ export function InputArea({ onSend }: InputAreaProps) {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Message HetGPT..."
-                    className="max-h-[200px] min-h-[52px] w-full resize-none bg-transparent px-12 py-4 text-base focus:outline-none scrollbar-hide"
+                    placeholder="Chat with HetGPT..."
+                    className="max-h-[200px] min-h-[52px] w-full resize-none bg-transparent px-12 py-4 text-base text-slate-100 focus:outline-none scrollbar-hide placeholder:text-slate-500"
                     rows={1}
                 />
 
@@ -112,7 +111,7 @@ export function InputArea({ onSend }: InputAreaProps) {
                 {/* Attachment Button (Left) */}
                 <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="absolute left-3 bottom-3 rounded-full p-2 text-muted-foreground hover:bg-background hover:text-foreground transition-colors"
+                    className="absolute left-3 bottom-3 rounded-full p-2 text-violet-300 hover:bg-slate-800/80 hover:text-violet-200 transition-colors"
                 >
                     <Paperclip className="h-5 w-5" />
                 </button>
@@ -120,7 +119,7 @@ export function InputArea({ onSend }: InputAreaProps) {
                 {/* Send Button (Right) */}
                 <div className="absolute right-3 bottom-3 flex items-center gap-2">
                     {!input.trim() && !selectedFile && (
-                        <button className="rounded-full p-2 text-muted-foreground hover:bg-background hover:text-foreground transition-colors">
+                        <button className="rounded-full p-2 text-violet-300 hover:bg-slate-800/80 hover:text-violet-200 transition-colors">
                             <Mic className="h-5 w-5" />
                         </button>
                     )}
@@ -128,19 +127,15 @@ export function InputArea({ onSend }: InputAreaProps) {
                         onClick={handleSend}
                         disabled={!input.trim() && !selectedFile}
                         className={clsx(
-                            "flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200",
+                            "flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 border",
                             (input.trim() || selectedFile)
-                                ? "bg-accent text-accent-foreground hover:opacity-90 hover:scale-105"
-                                : "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                                ? "bg-violet-500 text-white hover:bg-violet-400 hover:scale-105 border-violet-500"
+                                : "bg-slate-900 text-slate-600 border-slate-700 cursor-not-allowed opacity-70"
                         )}
                     >
                         <ArrowUp className="h-5 w-5" />
                     </button>
                 </div>
             </div>
-            <div className="mt-2 text-center text-xs text-muted-foreground">
-                HetGPT can make mistakes. Check important info.
-            </div>
-        </div>
     );
 }

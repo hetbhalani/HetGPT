@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -8,12 +8,13 @@ interface AuthModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
+    initialMode?: "login" | "signup";
 }
 
 type AuthMode = "login" | "signup";
 
-export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
-    const [mode, setMode] = useState<AuthMode>("login");
+export function AuthModal({ isOpen, onClose, onSuccess, initialMode = "login" }: AuthModalProps) {
+    const [mode, setMode] = useState<AuthMode>(initialMode);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -24,6 +25,13 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+
+    // Sync mode with initialMode prop when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            setMode(initialMode);
+        }
+    }, [isOpen, initialMode]);
 
     const resetForm = () => {
         setName("");
@@ -95,20 +103,17 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center animate-fadeIn">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/70 backdrop-blur-sm"
                 onClick={onClose}
             />
 
             {/* Modal */}
             <div className="relative w-full max-w-md mx-4 animate-scaleIn">
-                <div className="relative overflow-hidden rounded-3xl border border-border/50 bg-background/80 backdrop-blur-xl shadow-2xl">
-                    {/* Purple gradient accent */}
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
-
+                <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/95 backdrop-blur-xl shadow-2xl">
                     {/* Close button */}
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                        className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-all duration-200"
                     >
                         <X className="h-5 w-5" />
                     </button>
@@ -116,42 +121,37 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                     <div className="p-8">
                         {/* Header */}
                         <div className="text-center mb-8">
-                            <h2 className="text-2xl font-bold mb-2">
-                                Welcome to{" "}
-                                <span
-                                    className="text-transparent bg-clip-text"
-                                    style={{
-                                        backgroundImage: "linear-gradient(to right, #4b0082, #800080, #ff4500, #ffa500, #ff4500, #800080, #4b0082)",
-                                        backgroundSize: "200% auto",
-                                        animation: "gradientMove 3s linear infinite",
-                                        WebkitBackgroundClip: "text",
-                                        WebkitTextFillColor: "transparent"
-                                    }}
-                                >
-                                    HetGPT
-                                </span>
+                            <h2 className="text-2xl font-bold mb-2 text-slate-100">
+                                {mode === "login" ? "Welcome back" : "Create account"}
                             </h2>
-                            <p className="text-muted-foreground text-sm">
-                                {mode === "login" ? "Sign in to continue" : "Create your account"}
+                            <p className="text-slate-400 text-sm">
+                                {mode === "login" ? "Sign in to continue to HetGPT" : "Sign up to get started with HetGPT"}
                             </p>
                         </div>
 
                         {/* Tab Switcher */}
-                        <div className="flex mb-6 p-1 rounded-xl bg-muted/50">
+                        <div className="relative flex mb-6 p-1 rounded-xl bg-slate-900/50 border border-white/5">
+                            {/* Sliding Indicator */}
+                            <div
+                                className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-violet-600 rounded-lg shadow-md transition-transform duration-300 ease-out"
+                                style={{
+                                    transform: mode === "login" ? "translateX(4px)" : "translateX(calc(100% + 4px))"
+                                }}
+                            />
                             <button
                                 onClick={() => handleModeSwitch("login")}
-                                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${mode === "login"
-                                        ? "bg-background text-foreground shadow-sm"
-                                        : "text-muted-foreground hover:text-foreground"
+                                className={`relative flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors duration-200 z-10 ${mode === "login"
+                                    ? "text-white"
+                                    : "text-slate-400 hover:text-slate-200"
                                     }`}
                             >
                                 Login
                             </button>
                             <button
                                 onClick={() => handleModeSwitch("signup")}
-                                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${mode === "signup"
-                                        ? "bg-background text-foreground shadow-sm"
-                                        : "text-muted-foreground hover:text-foreground"
+                                className={`relative flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors duration-200 z-10 ${mode === "signup"
+                                    ? "text-white"
+                                    : "text-slate-400 hover:text-slate-200"
                                     }`}
                             >
                                 Sign Up
@@ -160,7 +160,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
                         {/* Error Message */}
                         {error && (
-                            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
+                            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
                                 {error}
                             </div>
                         )}
@@ -168,59 +168,59 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                         {/* Form */}
                         <form onSubmit={handleSubmit} className="space-y-4">
                             {mode === "signup" && (
-                                <div className="relative">
-                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                <div className="relative group">
+                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-violet-500 transition-colors" />
                                     <input
                                         type="text"
                                         placeholder="Full Name"
                                         value={name}
                                         onChange={(e) => setName(e.target.value)}
-                                        className="w-full pl-12 pr-4 py-3 rounded-xl bg-muted/50 border border-border/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/25 transition-all"
+                                        className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-slate-900/50 border border-white/10 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:bg-slate-900/80 transition-all duration-200"
                                         required
                                     />
                                 </div>
                             )}
 
-                            <div className="relative">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <div className="relative group">
+                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-violet-500 transition-colors" />
                                 <input
                                     type="email"
                                     placeholder="Email Address"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full pl-12 pr-4 py-3 rounded-xl bg-muted/50 border border-border/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/25 transition-all"
+                                    className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-slate-900/50 border border-white/10 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:bg-slate-900/80 transition-all duration-200"
                                     required
                                 />
                             </div>
 
-                            <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <div className="relative group">
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-violet-500 transition-colors" />
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     placeholder="Password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full pl-12 pr-12 py-3 rounded-xl bg-muted/50 border border-border/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/25 transition-all"
+                                    className="w-full pl-12 pr-12 py-3.5 rounded-xl bg-slate-900/50 border border-white/10 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:bg-slate-900/80 transition-all duration-200"
                                     required
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
                                 >
                                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                 </button>
                             </div>
 
                             {mode === "signup" && (
-                                <div className="relative">
-                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                <div className="relative group">
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-violet-500 transition-colors" />
                                     <input
                                         type={showPassword ? "text" : "password"}
                                         placeholder="Confirm Password"
                                         value={confirmPassword}
                                         onChange={(e) => setConfirmPassword(e.target.value)}
-                                        className="w-full pl-12 pr-4 py-3 rounded-xl bg-muted/50 border border-border/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/25 transition-all"
+                                        className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-slate-900/50 border border-white/10 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:bg-slate-900/80 transition-all duration-200"
                                         required
                                     />
                                 </div>
@@ -229,7 +229,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                className="w-full py-3.5 px-4 rounded-xl bg-violet-600 text-white font-medium hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-violet-500/20"
                             >
                                 {isLoading ? (
                                     <span className="flex items-center justify-center gap-2">
@@ -244,6 +244,23 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                                 )}
                             </button>
                         </form>
+
+                        {/* Footer */}
+                        <p className="text-center text-sm text-slate-500 mt-6">
+                            {mode === "login" ? (
+                                <>Don&apos;t have an account?{" "}
+                                    <button onClick={() => handleModeSwitch("signup")} className="text-violet-400 hover:text-violet-300 font-medium transition-colors">
+                                        Sign up
+                                    </button>
+                                </>
+                            ) : (
+                                <>Already have an account?{" "}
+                                    <button onClick={() => handleModeSwitch("login")} className="text-violet-400 hover:text-violet-300 font-medium transition-colors">
+                                        Sign in
+                                    </button>
+                                </>
+                            )}
+                        </p>
                     </div>
                 </div>
             </div>
