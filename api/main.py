@@ -36,12 +36,12 @@ def get_current_user_cookie(request: Request, db: Session = Depends(get_db)):
     if not token:
         return None
     
-    payload = auth.verify_token()
+    payload = auth.verify_token(token)
     
     if not payload:
         return None
     
-    user_id = payload.get('id')
+    user_id = payload.get('user_id')
     if not user_id:
         return None
     
@@ -51,10 +51,11 @@ def get_current_user_cookie(request: Request, db: Session = Depends(get_db)):
 def get_user_with_error(request: Request, db: Session = Depends(get_db)):
     user = get_current_user_cookie(request, db)
     if not user:
-        raise HTTPException(status_code=401, detail="Not Authenticated")    
+        raise HTTPException(status_code=401, detail="Not Authenticated")
+    return user    
 
 # SignUp
-@app.post('/auth/signup', response_model=schema.UserResponse)
+@app.post('/auth/signup')
 def user_signup(user: schema.UserCreate, response: Response, db: Session = Depends(get_db)):
     db_user = db.query(model.Users).filter(model.Users.email == user.email).first()
     
@@ -74,21 +75,24 @@ def user_signup(user: schema.UserCreate, response: Response, db: Session = Depen
     db.commit()
     db.refresh(new_user)
     
-    access_token = auth.create_access_token(data = {"id": new_user.id, "email": new_user.email})
+    access_token = auth.create_access_token(data = {"user_id": new_user.id, "email": new_user.email})
     
     response.set_cookie(
         key=COOKIE_NAME,
         value=access_token,
         max_age=COOKIE_MAX_AGE,
         httponly=True,
-        secure=False
+        secure=False,
+        samesite="lax"
     )
     
     return {
         "message": "Signup successful",
-        "id": new_user.id,
-        "name": new_user.name,
-        "email": new_user.email
+        "user": {
+            "id": new_user.id,
+            "name": new_user.name,
+            "email": new_user.email
+        }
     }
 
 # LogIn
@@ -111,10 +115,18 @@ def user_login(user: schema.UserLogin, response: Response, db: Session = Depends
         value=access_token,
         max_age=COOKIE_MAX_AGE,
         httponly=True,
-        secure=False 
+        secure=False,
+        samesite="lax"
     )
     
-    return {"message": "Login successful", "id": db_user.id, "name": db_user.name}
+    return {
+        "message": "Login successful",
+        "user": {
+            "id": db_user.id,
+            "name": db_user.name,
+            "email": db_user.email
+        }
+    }
         
 @app.get('/auth/me')
 def get_me(current_user = Depends(get_user_with_error)):
@@ -166,7 +178,12 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 
 # chat with LLM
 @app.post('/chat')
-def chat(req : schema.Chat):
+def chat(req: schema.Chat, request: Request, db: Session = Depends(get_db)):
+    # Check authentication
+    current_user = get_current_user_cookie(request, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required. Please login to continue.")
+    
     if req.query:
         try:
             session_history = conversation_manager.get_context(req.session_id)
