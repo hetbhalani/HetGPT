@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import Image from "next/image";
 import { Navbar } from "./Navbar";
@@ -8,7 +8,8 @@ import { InputArea } from "./InputArea";
 import { AuthModal } from "./AuthModal";
 import { useAuth } from "../context/AuthContext";
 import { UserMenu } from "./UserMenu";
-import { TextShimmer } from '@/components/ui/text-shimmer';
+import { TextShimmer } from '@/app/components/text-shimmer';
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 interface Message {
     id: string;
@@ -24,20 +25,68 @@ function TextShimmerBasic() {
     );
 }
 
-export function ChatInterface() {
+function ChatContent() {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+
+    // Determine state based on route
+    const isChatRoute = pathname === '/chat';
+    const hasStarted = isChatRoute;
+
     const [messages, setMessages] = useState<Message[]>([]);
-    const [hasStarted, setHasStarted] = useState(false);
     const [sessionId] = useState(() => uuidv4());
     const [isLoading, setIsLoading] = useState(false);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [pendingMessage, setPendingMessage] = useState<{ content: string; file?: File } | null>(null);
     const [authMode, setAuthMode] = useState<"login" | "signup">("login");
-    const messagesEndRef = useRef<HTMLDivElement | null>(null);
+    const [isInitialized, setIsInitialized] = useState(false);
 
-    const { user, isAuthenticated, checkAuth, logout } = useAuth();
+    const messagesEndRef = useRef<HTMLDivElement | null>(null);
+    const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+    const { user, isAuthenticated, checkAuth, logout, isLoading: isAuthLoading } = useAuth();
+
+    const isInitializedRef = useRef(false);
+
+    // Handle initialization from sessionStorage or URL query param (fallback)
+    useEffect(() => {
+        if (isChatRoute && !isInitializedRef.current) {
+            // Check session storage first (preferred)
+            const pendingQuery = sessionStorage.getItem('pendingQuery');
+            const urlQuery = searchParams.get('q');
+
+            const query = pendingQuery || urlQuery;
+
+            if (query) {
+                sendMessage(query);
+                // Clear storage/params so it doesn't run again on reload
+                sessionStorage.removeItem('pendingQuery');
+
+                // If we used URL param, strictly we might want to clean URL but for now just don't re-trigger
+            }
+            isInitializedRef.current = true;
+            setIsInitialized(true);
+        }
+    }, [isChatRoute, searchParams]);
+
+    // Scroll to bottom effect
+    // Scroll to bottom effect
+    useEffect(() => {
+        if (scrollContainerRef.current && (isLoading || hasStarted)) {
+            const scrollContainer = scrollContainerRef.current;
+            // Immediate scroll to ensure it reaches the bottom
+            setTimeout(() => {
+                scrollContainer.scrollTop = scrollContainer.scrollHeight;
+            }, 50);
+        }
+    }, [isLoading, hasStarted]);
 
     const sendMessage = async (content: string, file?: File) => {
-        if (!hasStarted) setHasStarted(true);
+        // Double check route
+        if (!isChatRoute) {
+            router.push(`/chat?q=${encodeURIComponent(content)}`);
+            return;
+        }
 
         const userMessage: Message = {
             id: Date.now().toString(),
@@ -91,65 +140,44 @@ export function ChatInterface() {
     };
 
     const handleSendMessage = async (content: string, file?: File) => {
-        // Check if user is already authenticated (e.g., from navbar login)
-        if (isAuthenticated) {
-            sendMessage(content, file);
+        // Enforce auth check immediately for all users
+        if (!isAuthenticated) {
+            const isAuthed = await checkAuth();
+            if (!isAuthed) {
+                setPendingMessage({ content, file });
+                setAuthMode("login");
+                setShowAuthModal(true);
+                return;
+            }
+        }
+
+        // If authenticated, proceed
+        if (!isChatRoute) {
+            sessionStorage.setItem('pendingQuery', content);
+            router.push('/chat');
             return;
         }
 
-        // If not authenticated, try to check auth (in case of page refresh with valid cookie)
-        const isAuthed = await checkAuth();
-        if (isAuthed) {
-            sendMessage(content, file);
-            return;
-        }
-
-        // Not authenticated - show auth modal
-        setPendingMessage({ content, file });
-        setShowAuthModal(true);
+        sendMessage(content, file);
     };
 
     const handleAuthSuccess = () => {
         setShowAuthModal(false);
-        // Send the pending message if there was one
         if (pendingMessage) {
-            sendMessage(pendingMessage.content, pendingMessage.file);
+            if (!isChatRoute) {
+                // Save to session storage before navigating
+                sessionStorage.setItem('pendingQuery', pendingMessage.content);
+                router.push('/chat');
+            } else {
+                sendMessage(pendingMessage.content, pendingMessage.file);
+            }
             setPendingMessage(null);
         }
     };
 
-    // Smoothly keep the view pinned to the latest messages
-    useEffect(() => {
-        if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
-        }
-    }, [messages, isLoading, hasStarted]);
-
     return (
-        <div className="flex h-screen w-full overflow-hidden bg-black text-slate-100 relative">
-            {/* Persistent Video Background */}
-            <div className="fixed inset-0 z-0">
-                <video
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    className="absolute inset-0 w-full h-full object-cover"
-                    style={{ minWidth: '100%', minHeight: '100%' }}
-                >
-                    <source src="/1222.mp4" type="video/mp4" />
-                </video>
-                {/* Overlay: subtle gradient for readability on top of video */}
-                <div
-                    className="absolute inset-0 transition-all duration-700 ease-in-out"
-                    style={{
-                        background: hasStarted
-                            ? 'rgba(3, 7, 18, 0.86)'
-                            : 'linear-gradient(to bottom, rgba(15,23,42,0.25) 0%, rgba(3,7,18,0.6) 55%, rgba(3,7,18,0.8) 100%)',
-                        backdropFilter: 'blur(18px)',
-                    }}
-                />
-            </div>
+        <div className="flex h-screen w-full overflow-hidden bg-transparent text-slate-100 relative">
+            {/* Persistent Video Background is now in layout.tsx via BackgroundWrapper */}
 
             {/* Navbar pinned at the top once the chat starts */}
             {hasStarted && <Navbar />}
@@ -174,36 +202,38 @@ export function ChatInterface() {
                             className="object-contain drop-shadow-lg"
                         />
                         <span className="text-xl font-semibold tracking-tight text-slate-100 drop-shadow-sm">
-                            HetGPT Studio
+                            HetGPT
                         </span>
                     </div>
 
                     {/* User Avatar or Auth Buttons */}
                     <div className="flex items-center gap-3">
-                        {isAuthenticated && user ? (
+                        {isAuthLoading ? (
+                            <div className="w-10 h-10 flex items-center justify-center">
+                                <svg className="animate-spin h-5 w-5 text-white/50" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </div>
+                        ) : isAuthenticated && user ? (
                             <UserMenu user={user} logout={logout} />
                         ) : (
                             <>
                                 <button
                                     onClick={() => { setAuthMode("login"); setShowAuthModal(true); }}
-                                    className="px-4 py-2 text-sm font-medium rounded-full border border-violet-500/40 bg-transparent text-slate-100 hover:bg-violet-600/10 hover:border-violet-400 transition-all duration-200"
+                                    className="cursor-pointer px-6 py-2.5 text-sm font-medium text-white border border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10 rounded-full transition-all duration-300 backdrop-blur-sm shadow-sm"
                                 >
                                     Log in
                                 </button>
-                                <button
-                                    onClick={() => { setAuthMode("signup"); setShowAuthModal(true); }}
-                                    className="px-4 py-2 text-sm font-semibold rounded-full bg-violet-500 text-white shadow-sm hover:bg-violet-400 transition-all duration-200"
-                                >
-                                    Get started
-                                </button>
+
                             </>
                         )}
                     </div>
                 </header>
             )}
 
-            <main className={`relative flex h-full w-full flex-col overflow-hidden transition-all duration-500 ${hasStarted ? 'pt-16' : 'pt-0'}`} style={{ zIndex: 2 }}>
-                <div className="flex-1 overflow-y-auto scroll-smooth">
+            <main className={`relative flex h-full w-full flex-col overflow-hidden transition-all duration-500 pt-0`} style={{ zIndex: 2 }}>
+                <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scroll-smooth">
                     {!hasStarted ? (
                         <div className="flex min-h-screen w-full flex-col items-center justify-center gap-8 p-6 md:p-10 text-center animate-fadeIn">
                             <h1 className="text-4xl md:text-6xl font-mono font-semibold tracking-tight text-slate-50 drop-shadow-[0_18px_45px_rgba(15,23,42,0.9)]">
@@ -211,11 +241,11 @@ export function ChatInterface() {
                                 <span
                                     className="text-transparent bg-clip-text"
                                     style={{
-                                        backgroundImage: "linear-gradient(to right, #38bdf8, #6366f1, #a855f7, #ec4899, #f97316, #ec4899, #6366f1, #38bdf8)", backgroundSize: "200% auto",
+                                        backgroundImage: "linear-gradient(to right, #5e30a3ff, #5e4ab7ff, #7A85C1, #ffffffff, #7A85C1, #5e4ab7ff, #5e30a3ff)", backgroundSize: "200% auto",
                                         animation: "gradientMove 5s linear infinite",
                                         WebkitBackgroundClip: "text",
                                         WebkitTextFillColor: "transparent",
-                                        filter: "drop-shadow(0 8px 32px rgba(15, 23, 42, 0.9))"
+                                        filter: "drop-shadow(0 8px 32px rgba(87, 92, 101, 0.9))"
                                     }}
                                 >
                                     HetGPT
@@ -245,7 +275,7 @@ export function ChatInterface() {
                             {/* Primary entry input */}
                             <div className="w-full max-w-2xl mt-4 md:mt-6">
                                 <div
-                                    className="backdrop-blur-xl rounded-3xl p-1 border border-violet-500/40 shadow-[0_20px_60px_rgba(0,0,0,0.9)] bg-slate-950/80"
+                                    className="backdrop-blur-xl rounded-3xl p-1 border border-violet-500/40"
                                 >
                                     <InputArea onSend={handleSendMessage} />
                                 </div>
@@ -255,7 +285,7 @@ export function ChatInterface() {
                             </div>
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center pb-32 pt-4 md:pt-8 px-3 md:px-6 animate-slideUp">
+                        <div className="flex flex-col items-center pb-32 pt-24 px-3 md:px-6 animate-slideUp">
                             <div className="w-full max-w-3xl">
                                 {messages.map((msg) => (
                                     <MessageBubble
@@ -266,8 +296,28 @@ export function ChatInterface() {
                                     />
                                 ))}
                                 {isLoading && (
-                                    <div className="pl-14">
-                                        <TextShimmerBasic />
+                                    <div className="flex w-full px-4 md:px-6 py-4 animate-fadeIn justify-start">
+                                        <div className="flex items-start gap-3 md:gap-4 max-w-[85%]">
+                                            {/* Avatar for Loader */}
+                                            <div className="flex shrink-0 flex-col relative items-end">
+                                                <div className="flex h-8 w-8 items-center justify-center rounded-sm overflow-hidden bg-transparent">
+                                                    <Image
+                                                        src="/alien.png"
+                                                        alt="HetGPT"
+                                                        width={32}
+                                                        height={32}
+                                                        className="object-contain"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Thinking Text */}
+                                            <div className="flex">
+                                                <div className="bg-white/7 backdrop-blur-xl text-slate-100 rounded-2xl rounded-tl-sm px-4 py-3 border border-white/10">
+                                                    <TextShimmerBasic />
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                                 <div ref={messagesEndRef} className="h-px w-full" />
@@ -276,9 +326,15 @@ export function ChatInterface() {
                     )}
                 </div>
                 {hasStarted && (
-                    <div className="absolute bottom-0 left-0 right-0 flex justify-center pt-10 pb-6 animate-slideUp z-20">
-                        {/* Gradient mask for input area to blend with scroll */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-slate-900/80 to-transparent pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 right-0 flex justify-center pt-10 pb-4 animate-slideUp z-20">
+                        {/* Gradient Blur Background Layer - Bottom aligned */}
+                        <div
+                            className="absolute top-0 bottom-0 left-0 right-2 bg-black/40 backdrop-blur-md pointer-events-none"
+                            style={{
+                                maskImage: 'linear-gradient(to top, black 0%, black 40%, transparent 100%)',
+                                WebkitMaskImage: 'linear-gradient(to top, black 0%, black 40%, transparent 100%)'
+                            }}
+                        />
                         <div className="w-full max-w-3xl px-4 relative z-10">
                             <InputArea onSend={handleSendMessage} />
                         </div>
@@ -297,5 +353,13 @@ export function ChatInterface() {
                 initialMode={authMode}
             />
         </div>
+    );
+}
+
+export function ChatInterface() {
+    return (
+        <Suspense fallback={<div className="h-screen w-full bg-black flex items-center justify-center text-white">Loading...</div>}>
+            <ChatContent />
+        </Suspense>
     );
 }

@@ -256,7 +256,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = "login" }:
                             ) : (
                                 <>Already have an account?{" "}
                                     <button onClick={() => handleModeSwitch("login")} className="text-violet-400 hover:text-violet-300 font-medium transition-colors">
-                                        Sign in
+                                        Login
                                     </button>
                                 </>
                             )}

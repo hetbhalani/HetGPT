@@ -7,7 +7,7 @@ import { AuthModal } from "./AuthModal";
 import { UserMenu } from "./UserMenu";
 
 export function Navbar() {
-    const { user, isAuthenticated, logout } = useAuth();
+    const { user, isAuthenticated, logout, isLoading } = useAuth();
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [authMode, setAuthMode] = useState<"login" | "signup">("login");
 
@@ -27,48 +27,52 @@ export function Navbar() {
 
     return (
         <>
-            <nav
-                className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
-                style={{
-                    background: 'transparent',
-                    backdropFilter: 'blur(10px)',
-                    borderBottom: '1px solid transparent',
-                    boxShadow: 'none'
-                }}
-            >
-                <div className="flex items-center justify-between w-full px-4 md:px-8 py-3.5">
+            <nav className="fixed top-0 left-0 right-0 z-50">
+                {/* Gradient Blur Background Layer */}
+                <div
+                    className="absolute inset-0 w-full h-full bg-black/40 backdrop-blur-md"
+                    style={{
+                        maskImage: 'linear-gradient(to bottom, black 0%, black 40%, transparent 100%)',
+                        WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 40%, transparent 100%)'
+                    }}
+                />
+
+                {/* Navbar Content */}
+                <div className="relative flex items-center justify-between w-full px-6 py-5">
                     {/* Left: Logo */}
                     <div className="flex items-center gap-3">
                         <Image
                             src="/alien.png"
                             alt="HetGPT Logo"
-                            width={32}
-                            height={32}
-                            className="object-contain drop-shadow-md"
+                            width={36}
+                            height={36}
                         />
-                        <span className="text-xl font-semibold tracking-tight text-slate-100">
-                            HetGPT Studio
+                        <span className="text-xl font-bold tracking-tight text-white drop-shadow-md">
+                            HetGPT
                         </span>
                     </div>
 
                     {/* Right: Auth buttons or Avatar */}
-                    <div className="flex items-center gap-4">
-                        {isAuthenticated && user ? (
+                    <div className="flex items-center gap-5">
+                        {isLoading ? (
+                            // Loading state spinner
+                            <div className="w-10 h-10 flex items-center justify-center">
+                                <svg className="animate-spin h-5 w-5 text-white/50" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </div>
+                        ) : isAuthenticated && user ? (
                             <UserMenu user={user} logout={handleLogout} />
                         ) : (
                             <>
                                 <button
                                     onClick={openLogin}
-                                    className="px-4 py-2 text-sm font-medium rounded-full border border-violet-500/40 bg-transparent text-slate-100 hover:bg-violet-600/10 hover:border-violet-400 transition-all duration-200"
+                                    className="cursor-pointer px-6 py-2.5 text-sm font-medium text-white border border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10 rounded-full transition-all duration-300 backdrop-blur-sm shadow-sm"
                                 >
                                     Log in
                                 </button>
-                                <button
-                                    onClick={openSignup}
-                                    className="px-4 py-2 text-sm font-semibold rounded-full bg-violet-500 text-white shadow-sm hover:bg-violet-400 transition-all duration-200"
-                                >
-                                    Get started
-                                </button>
+
                             </>
                         )}
                     </div>

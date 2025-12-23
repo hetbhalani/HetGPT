@@ -43,7 +43,7 @@ export function UserMenu({ user, logout }: UserMenuProps) {
         <div className="relative" ref={menuRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 hover:opacity-80 transition-opacity focus:outline-none"
+                className="cursor-pointer flex items-center gap-2 hover:opacity-80 transition-opacity focus:outline-none"
             >
                 <UserAvatar name={user.name} size="md" />
             </button>
@@ -57,7 +57,7 @@ export function UserMenu({ user, logout }: UserMenuProps) {
                     </div>
                     <button
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors text-left"
+                        className="cursor-pointer w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors text-left"
                     >
                         <LogOut className="h-4 w-4" />
                         Sign out

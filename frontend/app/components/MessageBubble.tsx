@@ -23,7 +23,8 @@ export function MessageBubble({ role, content, userName }: MessageBubbleProps) {
         .replace(/^\s*[-*]\s*/gm, "• ")
         .replace(/^\s*\d+\.\s*/gm, "• ")
         // Inline code backticks → plain text
-        .replace(/`([^`]*)`/g, "$1");
+        .replace(/`([^`]*)`/g, "$1")
+        .trim();
 
     return (
         <div
@@ -69,8 +70,8 @@ export function MessageBubble({ role, content, userName }: MessageBubbleProps) {
                     <div className={clsx(
                         "inline-flex break-words leading-7 relative z-10 text-sm md:text-[15px]",
                         isUser
-                            ? "bg-violet-500 text-white rounded-2xl rounded-tr-sm px-3 md:px-4 py-2 shadow-lg shadow-violet-500/15"
-                            : "bg-slate-900/80 backdrop-blur-xl text-slate-100 rounded-2xl rounded-tl-sm px-3 md:px-4 py-2.5 border border-white/10 shadow-[0_16px_36px_rgba(0,0,0,0.9)]"
+                            ? "bg-violet-600/20 backdrop-blur-md text-slate-100 rounded-2xl rounded-tr-sm px-4 py-3 border border-violet-500/20 shadow-sm"
+                            : "bg-white/7 backdrop-blur-md text-slate-100 rounded-2xl rounded-tl-sm px-4 py-3 border border-white/10 shadow-sm"
                     )}>
                         <p className={clsx(
                             "whitespace-pre-wrap m-0 text-left",
