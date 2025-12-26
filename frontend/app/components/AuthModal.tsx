@@ -87,7 +87,8 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = "login" }:
                 throw new Error(data.detail || "Authentication failed");
             }
 
-            setUser(data.user);
+            console.log("Auth successful:", data);
+            setUser(data.user || { id: data.id, name: data.name, email: data.email });
             resetForm();
             onSuccess();
         } catch (err) {

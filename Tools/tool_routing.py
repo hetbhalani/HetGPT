@@ -1,7 +1,8 @@
 from .tools import Tools
-from langchain_core.messages import HumanMessage, ToolMessage, AIMessage, SystemMessage
+from langchain_core.messages import HumanMessage, ToolMessage, AIMessage, BaseMessage, SystemMessage
 from langchain_ollama import ChatOllama
 from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
+from typing import List
 import os
 from dotenv import load_dotenv
 
@@ -25,17 +26,14 @@ llm = ChatHuggingFace(llm=model)
 tools = [Tools.what_the_duck, Tools.wiki, Tools.weather, Tools.news]
 llm_w_tools = llm.bind_tools(tools)
 
-def tool_call(query, session_history=None):
+def tool_call(query: str, session_history: List[BaseMessage] = None):
     messages = [
         SystemMessage(content="You are a helpful assistant. Use the available tools to answer questions. After using tools and getting results, provide a clear, natural language answer to the user. Do not make repeated tool calls with the same tool."),
     ]    
     
     if session_history:
         for msg in session_history[-6:]:
-            if msg['role'] == 'user':
-                messages.append(HumanMessage(content=msg['content']))
-            elif msg['role'] == 'ai':
-                messages.append(AIMessage(content=msg['content']))
+            messages.append(msg)
     
     messages.append(HumanMessage(content=query))
     
@@ -49,7 +47,6 @@ def tool_call(query, session_history=None):
         iteration += 1
         
         for tool_call in response.tool_calls:
-            print(response)
             tool_name = tool_call["name"]
             args = tool_call["args"]
             tool_id = tool_call["id"]

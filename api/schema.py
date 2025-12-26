@@ -34,3 +34,6 @@ class TokenData(BaseModel):
 class AuthResponse(BaseModel):
     message: str
     user: UserResponse
+
+class EndSession(BaseModel):
+    session_id: str 

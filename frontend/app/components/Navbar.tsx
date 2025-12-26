@@ -6,7 +6,11 @@ import { useAuth } from "../context/AuthContext";
 import { AuthModal } from "./AuthModal";
 import { UserMenu } from "./UserMenu";
 
-export function Navbar() {
+interface NavbarProps {
+    onNewChat?: () => void;
+}
+
+export function Navbar({ onNewChat }: NavbarProps) {
     const { user, isAuthenticated, logout, isLoading } = useAuth();
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [authMode, setAuthMode] = useState<"login" | "signup">("login");
@@ -39,17 +43,38 @@ export function Navbar() {
 
                 {/* Navbar Content */}
                 <div className="relative flex items-center justify-between w-full px-6 py-5">
-                    {/* Left: Logo */}
-                    <div className="flex items-center gap-3">
-                        <Image
-                            src="/alien.png"
-                            alt="HetGPT Logo"
-                            width={36}
-                            height={36}
-                        />
-                        <span className="text-xl font-bold tracking-tight text-white drop-shadow-md">
-                            HetGPT
-                        </span>
+                    {/* Left: Logo and New Chat button */}
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
+                            <Image
+                                src="/alien.png"
+                                alt="HetGPT Logo"
+                                width={36}
+                                height={36}
+                            />
+                            <span className="text-xl font-bold tracking-tight text-white drop-shadow-md">
+                                HetGPT
+                            </span>
+                        </div>
+
+                        {/* New Chat button - only shown when authenticated */}
+                        {isAuthenticated && onNewChat && (
+                            <button
+                                onClick={onNewChat}
+                                className="cursor-pointer flex items-center gap-2 px-4 py-2 text-sm font-medium text-white border border-white/20 hover:border-violet-400/60 bg-white/5 hover:bg-violet-500/20 rounded-full transition-all duration-300 backdrop-blur-sm shadow-sm ml-2"
+                                title="Start a new chat"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                    className="w-4 h-4"
+                                >
+                                    <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                                </svg>
+                                New Chat
+                            </button>
+                        )}
                     </div>
 
                     {/* Right: Auth buttons or Avatar */}

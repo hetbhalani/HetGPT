@@ -25,15 +25,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const checkAuth = async (): Promise<boolean> => {
         try {
+            console.log("Checking authentication...");
             const response = await fetch("http://localhost:8000/auth/me", {
                 credentials: "include",
             });
 
+            console.log("Auth check response status:", response.status);
+
             if (response.ok) {
                 const userData = await response.json();
+                console.log("Auth check successful, user:", userData);
                 setUser(userData);
                 return true;
             } else {
+                console.log("Auth check failed, status not ok");
                 setUser(null);
                 return false;
             }

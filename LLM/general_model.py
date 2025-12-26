@@ -19,18 +19,23 @@ llm = ChatHuggingFace(llm=model)
 #     temperature=0,
 # )
 
-def cs_model_call(query: str, session_history: List[BaseMessage] = None):
+def general_model_call(query: str, session_history: List[BaseMessage] = None):
     try:
-        messages = []
+        messages = [
+            SystemMessage(content="You are HetGPT, a friendly and helpful AI assistant. Respond naturally to greetings, casual conversation, questions, and any general queries. Be warm, conversational, and helpful.")
+        ]
         
         if session_history:
             messages.extend(session_history[-6:])
         
         messages.append(HumanMessage(content=query))
         
+        print(f"[DEBUG] General model messages: {messages}")
+        
         res = llm.invoke(messages)
         return res.content
     
     except Exception as e:
-        print(f"Error: {e}")
-        return None
+        print(f"Error in general_model: {e}")
+        return "Hello! I'm HetGPT. How can I help you today?"
+
