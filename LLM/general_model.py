@@ -19,13 +19,13 @@ llm = ChatHuggingFace(llm=model)
 #     temperature=0,
 # )
 
-def cs_model_call(query: str, history: list = None):
+def general_model_call(query: str, history: list = None):
     try:
         if history:
             messages = list(history)
         else:
             messages = [
-                SystemMessage(content="You are a helpful coding assistant. Answer programming questions concisely.")
+                SystemMessage(content="You are a helpful assistant. Answer questions concisely.")
             ]
             messages.append(HumanMessage(content=query))
         
@@ -34,4 +34,4 @@ def cs_model_call(query: str, history: list = None):
     
     except Exception as e:
         print(f"Error: {e}")
-        return "I'm sorry, I couldn't process that coding request."
+        return "I'm here to help! How can I assist you today?"

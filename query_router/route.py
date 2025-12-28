@@ -1,6 +1,7 @@
 from langchain_core.prompts import PromptTemplate
 from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
 from langchain_ollama import ChatOllama
+from langchain.messages import SystemMessage, HumanMessage, AIMessage
 from dotenv import load_dotenv
 import json
 import sys
@@ -9,6 +10,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from Tools.tool_routing import tool_call
 from RAG.rag_final import RAG_ans
 from LLM.cs_model import cs_model_call
+from LLM.general_model import general_model_call
 from typing import List, Dict
 
 load_dotenv()
@@ -51,7 +53,8 @@ planner_prompt = PromptTemplate(
             ### ROUTE DEFINITIONS:
             - "CS" → programming, code, debugging, algorithm design, or Computer Science conceptual explanations.
             - "TOOLS" → real-world lookup, facts, information about something, search, factual information, news, weather, prices, names, current data, or calculations based on real-world values.
-            - If unsure, choose "TOOLS".
+            - "GENERAL" → Greetings, small talk, general knowledge that doesn't need external tools, or when the query is unclear/ambiguous.
+            - If unsure, choose "GENERAL".
 
             ### SPLITTING RULES:
             - Split only when the query clearly contains multiple separate instructions ("and", "also", "then").
@@ -74,6 +77,20 @@ planner_prompt = PromptTemplate(
         """
 )
 
+sessions: Dict[str, List] = {}
+
+def get_session(session_id: str):
+    if session_id not in sessions:
+        sessions[session_id] = [
+            SystemMessage(content="You are a helpful assistant. Answer questions shortly.")
+        ]
+    return sessions[session_id]
+
+def trim_memory(msg: List):
+    system = msg[:1]
+    rest = msg[-10:] # last 5 pairs
+    return system + rest
+
 def plan_task(query: str):
     raw = model.invoke(planner_prompt.format(query=query))
     print(raw)
@@ -84,55 +101,64 @@ def plan_task(query: str):
     
     except Exception as e:
         print(e)
-        return None
+        return []
 
-def route(query: str, file_path: str = None, session_history: List[Dict] = None):
+def route(query: str, session_id: str, file_path: str = None):
+    global sessions
     res = ""
-    context = {}
-
+    
+    messages = get_session(session_id)
+    
+    messages.append(HumanMessage(content=query))
+    messages = trim_memory(messages)
+    sessions[session_id] = messages
+    
     # RAG (when file upload)
     if file_path:
         try:
-            return RAG_ans(query, file_path)
-        except Exception as e:
-            print(f"Something went wrong: {e}")
-            return None
-            
-            
-    if session_history:
-        print(f"+++++++++++++++++++++++++++++++++++++{session_history}++++++++++++++++++++++++++++++++++++++++")
-        recent_history = session_history[-10:]
-        history_str = '\n'.join([
-            f"{msg['role'].upper()}: {msg['content']}" 
-            for msg in recent_history
-        ])
-        query_w_context = f"CONVERSATION HISTORY:\n{history_str}\n\nCURRENT QUERY: {query}"
-    else:
-        query_w_context = query
+            res = RAG_ans(query, file_path)
+            messages.append(AIMessage(content=res))
+            sessions[session_id] = trim_memory(messages)
+            return res
         
-    data = plan_task(query_w_context)
+        except Exception as e:
+            print(f"RAG error: {e}")
+            return None
+
+    data = plan_task(query)
+    
+    # Fallback
+    if not data:
+        print("Plan is empty, defaulting to GENERAL")
+        data = [{'task': query, 'route': 'GENERAL'}]
+        
     print(data)
     
     for i in data:
         task = i['task']
-        
-        if context:
-            task += f'\n\nCONTEXT (use if needed): {json.dumps(context)}'
+        out = None 
         
         if i['route'] == 'TOOLS':
-            # print("call Tools model")
-            out = tool_call(task, session_history)
+            out = tool_call(task, messages)
             
         elif i['route'] == 'CS':
-            out = cs_model_call(task, session_history)
+            out = cs_model_call(task, messages)
+
+        elif i['route'] == 'GENERAL':
+            out = general_model_call(task, messages)
             
         else:
-            print("Something went wrong")
-        # print(type(i))
+            print("Unknown route, defaulting to GENERAL")
+            out = general_model_call(task, messages)
         
-        context[i['task']] = out
+        if out is None or out == "":
+            out = "I'm sorry, I couldn't answer that question."
         
         res += str(out) + '\n\n'
+    
+    messages.append(AIMessage(content=res))
+    sessions[session_id] = trim_memory(messages)
+    
     return res
 
 

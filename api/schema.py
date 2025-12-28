@@ -13,7 +13,7 @@ class UserLogin(UserBase):
     
 class ContextUpdate(BaseModel):
     context: str
-    
+
 class UserResponse(UserBase):
     id: int
     name: str

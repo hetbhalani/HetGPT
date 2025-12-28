@@ -25,19 +25,16 @@ llm = ChatHuggingFace(llm=model)
 tools = [Tools.what_the_duck, Tools.wiki, Tools.weather, Tools.news]
 llm_w_tools = llm.bind_tools(tools)
 
-def tool_call(query, session_history=None):
-    messages = [
-        SystemMessage(content="You are a helpful assistant. Use the available tools to answer questions. After using tools and getting results, provide a clear, natural language answer to the user. Do not make repeated tool calls with the same tool."),
-    ]    
-    
-    if session_history:
-        for msg in session_history[-6:]:
-            if msg['role'] == 'user':
-                messages.append(HumanMessage(content=msg['content']))
-            elif msg['role'] == 'ai':
-                messages.append(AIMessage(content=msg['content']))
-    
-    messages.append(HumanMessage(content=query))
+def tool_call(query, history: list = None):
+    if history:
+        messages = list(history)
+        if messages and hasattr(messages[0], 'content'):
+            messages[0] = SystemMessage(content="You are a helpful assistant. Use the available tools to answer questions. After using tools and getting results, provide a clear, natural language answer to the user. Do not make repeated tool calls with the same tool.")
+    else:
+        messages = [
+            SystemMessage(content="You are a helpful assistant. Use the available tools to answer questions. After using tools and getting results, provide a clear, natural language answer to the user. Do not make repeated tool calls with the same tool."),
+        ]    
+        messages.append(HumanMessage(content=query))
     
     response = llm_w_tools.invoke(messages)
     messages.append(response)

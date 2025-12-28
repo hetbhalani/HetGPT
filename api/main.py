@@ -7,7 +7,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from query_router.route import route
-from api.context_manager import ConversationManager
+
 from api import model, schema, auth
 from api.database import engine, get_db
 
@@ -24,8 +24,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-conversation_manager = ConversationManager()           
-
 #cookie setting
 COOKIE_NAME = "access_token"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -36,12 +34,12 @@ def get_current_user_cookie(request: Request, db: Session = Depends(get_db)):
     if not token:
         return None
     
-    payload = auth.verify_token()
+    payload = auth.verify_token(token)
     
     if not payload:
         return None
     
-    user_id = payload.get('id')
+    user_id = payload.get('id') or payload.get('user_id')  # Support both keys
     if not user_id:
         return None
     
@@ -51,7 +49,8 @@ def get_current_user_cookie(request: Request, db: Session = Depends(get_db)):
 def get_user_with_error(request: Request, db: Session = Depends(get_db)):
     user = get_current_user_cookie(request, db)
     if not user:
-        raise HTTPException(status_code=401, detail="Not Authenticated")    
+        raise HTTPException(status_code=401, detail="Not Authenticated")
+    return user    
 
 # SignUp
 @app.post('/auth/signup', response_model=schema.UserResponse)
@@ -103,7 +102,7 @@ def user_login(user: schema.UserLogin, response: Response, db: Session = Depends
         raise HTTPException(status_code=400, detail="Invalid credentials")
         
     access_token = auth.create_access_token(
-        data={"user_id": db_user.id, "email": db_user.email}
+        data={"id": db_user.id, "email": db_user.email}
     )
     
     response.set_cookie(
@@ -169,16 +168,17 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 def chat(req : schema.Chat):
     if req.query:
         try:
-            session_history = conversation_manager.get_context(req.session_id)
-            conversation_manager.add_message(req.session_id, "user", req.query)
+            # session_history = conversation_manager.get_context(req.session_id)
+            # conversation_manager.add_message(req.session_id, "user", req.query)
             
             res = route(
                 query=req.query,
+                session_id=req.session_id,
                 file_path=req.path if req.path else None,
-                session_history=session_history
+                # session_history=session_history
             )
             
-            conversation_manager.add_message(req.session_id, "ai", res)
+            # conversation_manager.add_message(req.session_id, "ai", res)
             return {"response": res}
         
         except Exception as e:
