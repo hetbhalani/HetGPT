@@ -87,7 +87,8 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = "login" }:
                 throw new Error(data.detail || "Authentication failed");
             }
 
-            setUser(data.user);
+            // Backend returns { id, name, email, message } directly, not nested under 'user'
+            setUser({ id: data.id, name: data.name, email: data.email || email });
             resetForm();
             onSuccess();
         } catch (err) {

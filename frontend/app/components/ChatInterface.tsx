@@ -8,7 +8,7 @@ import { InputArea } from "./InputArea";
 import { AuthModal } from "./AuthModal";
 import { useAuth } from "../context/AuthContext";
 import { UserMenu } from "./UserMenu";
-import { TextShimmer } from '@/app/components/text-shimmer';
+import { TextShimmer } from '../components/text-shimmer';
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 interface Message {
@@ -35,7 +35,7 @@ function ChatContent() {
     const hasStarted = isChatRoute;
 
     const [messages, setMessages] = useState<Message[]>([]);
-    const [sessionId] = useState(() => uuidv4());
+    const [sessionId, setSessionId] = useState(() => uuidv4());
     const [isLoading, setIsLoading] = useState(false);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [pendingMessage, setPendingMessage] = useState<{ content: string; file?: File } | null>(null);
@@ -43,43 +43,90 @@ function ChatContent() {
     const [isInitialized, setIsInitialized] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
-    const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-    const { user, isAuthenticated, checkAuth, logout, isLoading: isAuthLoading } = useAuth();
+    const { user, isAuthenticated, checkAuth, logout } = useAuth();
 
-    const isInitializedRef = useRef(false);
+    const hasSentQuery = useRef(false);
 
-    // Handle initialization from sessionStorage or URL query param (fallback)
+    // Persist session context on page close/refresh
     useEffect(() => {
-        if (isChatRoute && !isInitializedRef.current) {
-            // Check session storage first (preferred)
-            const pendingQuery = sessionStorage.getItem('pendingQuery');
-            const urlQuery = searchParams.get('q');
-
-            const query = pendingQuery || urlQuery;
-
-            if (query) {
-                sendMessage(query);
-                // Clear storage/params so it doesn't run again on reload
-                sessionStorage.removeItem('pendingQuery');
-
-                // If we used URL param, strictly we might want to clean URL but for now just don't re-trigger
+        const handleBeforeUnload = () => {
+            if (messages.length > 0 && isAuthenticated) {
+                // Use fetch with keepalive to ensure the request finishes even if the tab closes
+                fetch('http://localhost:8000/chat/end-session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        query: "", // Not used by the endpoint for summarization
+                        session_id: sessionId
+                    }),
+                    keepalive: true
+                });
             }
-            isInitializedRef.current = true;
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [messages, sessionId, isAuthenticated]);
+
+    const handleNewChat = async () => {
+        const oldSessionId = sessionId;
+        const hasMessages = messages.length > 0;
+
+        // Reset state for new chat IMMEDIATELY for better UX
+        setMessages([]);
+        setSessionId(uuidv4());
+        hasSentQuery.current = false;
+
+        if (hasMessages && isAuthenticated) {
+            console.log("Ending session and summarizing in background...");
+            try {
+                // We don't await this so the UI stays responsive
+                fetch('http://localhost:8000/chat/end-session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        query: "",
+                        session_id: oldSessionId
+                    })
+                }).then(res => {
+                    if (res.ok) console.log("Session end initiated successfully");
+                    else console.error("Session end failed with status:", res.status);
+                }).catch(err => {
+                    console.error("Failed to end session:", err);
+                });
+            } catch (error) {
+                console.error("Failed to initiate session end:", error);
+            }
+        }
+    };
+
+    // Handle initialization from URL query param
+    useEffect(() => {
+        if (isChatRoute && !isInitialized && !hasSentQuery.current) {
+            const query = searchParams.get('q');
+            if (query) {
+                hasSentQuery.current = true;
+                sendMessage(query);
+
+                // Clear the query from the URL without reloading
+                const params = new URLSearchParams(searchParams.toString());
+                params.delete('q');
+                const newQuery = params.toString();
+                const newPath = pathname + (newQuery ? `?${newQuery}` : '');
+                router.replace(newPath);
+            }
             setIsInitialized(true);
         }
-    }, [isChatRoute, searchParams]);
+    }, [isChatRoute, searchParams, isInitialized, pathname, router]);
 
     // Scroll to bottom effect
-    // Scroll to bottom effect
     useEffect(() => {
-        if (scrollContainerRef.current && (isLoading || hasStarted)) {
-            const scrollContainer = scrollContainerRef.current;
-            // Immediate scroll to ensure it reaches the bottom
-            setTimeout(() => {
-                scrollContainer.scrollTop = scrollContainer.scrollHeight;
-            }, 50);
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
         }
-    }, [isLoading, hasStarted]);
+    }, [messages, isLoading, hasStarted]);
 
     const sendMessage = async (content: string, file?: File) => {
         // Double check route
@@ -140,34 +187,31 @@ function ChatContent() {
     };
 
     const handleSendMessage = async (content: string, file?: File) => {
-        // Enforce auth check immediately for all users
-        if (!isAuthenticated) {
-            const isAuthed = await checkAuth();
-            if (!isAuthed) {
-                setPendingMessage({ content, file });
-                setAuthMode("login");
-                setShowAuthModal(true);
-                return;
-            }
-        }
-
-        // If authenticated, proceed
         if (!isChatRoute) {
-            sessionStorage.setItem('pendingQuery', content);
-            router.push('/chat');
+            router.push(`/chat?q=${encodeURIComponent(content)}`);
             return;
         }
 
-        sendMessage(content, file);
+        if (isAuthenticated) {
+            sendMessage(content, file);
+            return;
+        }
+
+        const isAuthed = await checkAuth();
+        if (isAuthed) {
+            sendMessage(content, file);
+            return;
+        }
+
+        setPendingMessage({ content, file });
+        setShowAuthModal(true);
     };
 
     const handleAuthSuccess = () => {
         setShowAuthModal(false);
         if (pendingMessage) {
             if (!isChatRoute) {
-                // Save to session storage before navigating
-                sessionStorage.setItem('pendingQuery', pendingMessage.content);
-                router.push('/chat');
+                router.push(`/chat?q=${encodeURIComponent(pendingMessage.content)}`);
             } else {
                 sendMessage(pendingMessage.content, pendingMessage.file);
             }
@@ -176,11 +220,33 @@ function ChatContent() {
     };
 
     return (
-        <div className="flex h-screen w-full overflow-hidden bg-transparent text-slate-100 relative">
-            {/* Persistent Video Background is now in layout.tsx via BackgroundWrapper */}
+        <div className="flex h-screen w-full overflow-hidden bg-black text-slate-100 relative">
+            {/* Persistent Video Background */}
+            <div className="fixed inset-0 z-0">
+                <video
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="absolute inset-0 w-full h-full object-cover"
+                    style={{ minWidth: '100%', minHeight: '100%' }}
+                >
+                    <source src="/1222.mp4" type="video/mp4" />
+                </video>
+                {/* Overlay: subtle gradient for readability on top of video */}
+                <div
+                    className="absolute inset-0 transition-all duration-700 ease-in-out"
+                    style={{
+                        background: hasStarted
+                            ? 'rgba(3, 7, 18, 0.86)'
+                            : 'linear-gradient(to bottom, rgba(15,23,42,0.25) 0%, rgba(3,7,18,0.6) 55%, rgba(3,7,18,0.8) 100%)',
+                        backdropFilter: 'blur(18px)',
+                    }}
+                />
+            </div>
 
             {/* Navbar pinned at the top once the chat starts */}
-            {hasStarted && <Navbar />}
+            {hasStarted && <Navbar onNewChat={handleNewChat} />}
 
             {/* Top Header with Logo and User Avatar - Only for Welcome Screen */}
             {!hasStarted && (
@@ -193,39 +259,49 @@ function ChatContent() {
                     }}
                 >
                     {/* Logo and App Name */}
-                    <div className="flex items-center gap-3">
-                        <Image
-                            src="/alien.png"
-                            alt="HetGPT Logo"
-                            width={36}
-                            height={36}
-                            className="object-contain drop-shadow-lg"
-                        />
-                        <span className="text-xl font-semibold tracking-tight text-slate-100 drop-shadow-sm">
-                            HetGPT
-                        </span>
+                    <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-3">
+                            <Image
+                                src="/alien.png"
+                                alt="HetGPT Logo"
+                                width={36}
+                                height={36}
+                                className="object-contain drop-shadow-lg"
+                            />
+                            <span className="text-xl font-semibold tracking-tight text-slate-100 drop-shadow-sm">
+                                HetGPT
+                            </span>
+                        </div>
+
+                        {messages.length > 0 && (
+                            <button
+                                onClick={handleNewChat}
+                                className="cursor-pointer flex items-center gap-2 px-4 py-1.5 text-sm font-medium text-slate-200 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg transition-all duration-300"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+                                New Chat
+                            </button>
+                        )}
                     </div>
 
                     {/* User Avatar or Auth Buttons */}
                     <div className="flex items-center gap-3">
-                        {isAuthLoading ? (
-                            <div className="w-10 h-10 flex items-center justify-center">
-                                <svg className="animate-spin h-5 w-5 text-white/50" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                            </div>
-                        ) : isAuthenticated && user ? (
+                        {isAuthenticated && user ? (
                             <UserMenu user={user} logout={logout} />
                         ) : (
                             <>
                                 <button
                                     onClick={() => { setAuthMode("login"); setShowAuthModal(true); }}
-                                    className="cursor-pointer px-6 py-2.5 text-sm font-medium text-white border border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10 rounded-full transition-all duration-300 backdrop-blur-sm shadow-sm"
+                                    className="px-4 py-2 text-sm font-medium rounded-full border border-violet-500/40 bg-transparent text-slate-100 hover:bg-violet-600/10 hover:border-violet-400 transition-all duration-200"
                                 >
                                     Log in
                                 </button>
-
+                                <button
+                                    onClick={() => { setAuthMode("signup"); setShowAuthModal(true); }}
+                                    className="px-4 py-2 text-sm font-semibold rounded-full bg-violet-500 text-white shadow-sm hover:bg-violet-400 transition-all duration-200"
+                                >
+                                    Get started
+                                </button>
                             </>
                         )}
                     </div>
@@ -233,7 +309,7 @@ function ChatContent() {
             )}
 
             <main className={`relative flex h-full w-full flex-col overflow-hidden transition-all duration-500 pt-0`} style={{ zIndex: 2 }}>
-                <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scroll-smooth">
+                <div className="flex-1 overflow-y-auto scroll-smooth">
                     {!hasStarted ? (
                         <div className="flex min-h-screen w-full flex-col items-center justify-center gap-8 p-6 md:p-10 text-center animate-fadeIn">
                             <h1 className="text-4xl md:text-6xl font-mono font-semibold tracking-tight text-slate-50 drop-shadow-[0_18px_45px_rgba(15,23,42,0.9)]">
@@ -313,7 +389,7 @@ function ChatContent() {
 
                                             {/* Thinking Text */}
                                             <div className="flex">
-                                                <div className="bg-white/7 backdrop-blur-xl text-slate-100 rounded-2xl rounded-tl-sm px-4 py-3 border border-white/10">
+                                                <div className="bg-slate-900/80 backdrop-blur-xl text-slate-100 rounded-2xl rounded-tl-sm px-3 md:px-4 py-2.5 border border-white/10 shadow-[0_16px_36px_rgba(0,0,0,0.9)]">
                                                     <TextShimmerBasic />
                                                 </div>
                                             </div>
@@ -329,7 +405,7 @@ function ChatContent() {
                     <div className="absolute bottom-0 left-0 right-0 flex justify-center pt-10 pb-4 animate-slideUp z-20">
                         {/* Gradient Blur Background Layer - Bottom aligned */}
                         <div
-                            className="absolute top-0 bottom-0 left-0 right-2 bg-black/40 backdrop-blur-md pointer-events-none"
+                            className="absolute inset-0 w-full h-full bg-black/40 backdrop-blur-md pointer-events-none"
                             style={{
                                 maskImage: 'linear-gradient(to top, black 0%, black 40%, transparent 100%)',
                                 WebkitMaskImage: 'linear-gradient(to top, black 0%, black 40%, transparent 100%)'

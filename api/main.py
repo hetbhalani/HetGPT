@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Response, Request
+from fastapi import FastAPI, HTTPException, Depends, Response, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import sys
@@ -9,7 +9,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from query_router.route import route
 
 from api import model, schema, auth
-from api.database import engine, get_db
+from api.database import engine, get_db, SessionLocal
+from RAG.long_term_RAG import LtmRag
+from LLM.summary_model import summary_model_call
+from query_router.route import get_session, sessions, clear_ltm_cache
 
 model.Base.metadata.create_all(bind=engine)
 
@@ -18,7 +21,12 @@ app = FastAPI()
 #CORS to allow backend call
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -80,7 +88,8 @@ def user_signup(user: schema.UserCreate, response: Response, db: Session = Depen
         value=access_token,
         max_age=COOKIE_MAX_AGE,
         httponly=True,
-        secure=False
+        secure=False,
+        samesite="lax"
     )
     
     return {
@@ -110,7 +119,8 @@ def user_login(user: schema.UserLogin, response: Response, db: Session = Depends
         value=access_token,
         max_age=COOKIE_MAX_AGE,
         httponly=True,
-        secure=False 
+        secure=False,
+        samesite="lax"
     )
     
     return {"message": "Login successful", "id": db_user.id, "name": db_user.name}
@@ -147,7 +157,7 @@ def update_context(user_id: int, context_data: schema.ContextUpdate, db: Session
     db_user = db.query(model.Users).filter(model.Users.id == user_id).first()
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
-        
+    
     db_user.context = context_data.context
     db.commit()
     return {"message": "Context updated successfully"}
@@ -165,22 +175,74 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 
 # chat with LLM
 @app.post('/chat')
-def chat(req : schema.Chat):
+def chat(req : schema.Chat, request: Request, db: Session = Depends(get_db)):
     if req.query:
         try:
-            # session_history = conversation_manager.get_context(req.session_id)
-            # conversation_manager.add_message(req.session_id, "user", req.query)
+            # Fetch LTM context if user is logged in
+            user = get_current_user_cookie(request, db)
+            ltm_context = user.context if user else ""
             
             res = route(
                 query=req.query,
                 session_id=req.session_id,
                 file_path=req.path if req.path else None,
-                # session_history=session_history
+                ltm=ltm_context
             )
             
-            # conversation_manager.add_message(req.session_id, "ai", res)
             return {"response": res}
         
         except Exception as e:
             print("error: ",e)
             raise HTTPException(500, "Something went wrong")
+
+def process_session_end(session_id: str, user_id: int):
+    # This runs in background
+    db = SessionLocal()
+    try:
+        user = db.query(model.Users).filter(model.Users.id == user_id).first()
+        if not user:
+            return
+
+        history = get_session(session_id)
+        if not history or len(history) <= 1:
+            return
+
+        print(f"start summary: {session_id}")
+        new_memories = summary_model_call(history)
+        
+        if new_memories:
+            if user.context:
+                user.context += "\n" + new_memories
+            else:
+                user.context = new_memories
+            db.commit()
+            print(f"summary complete: {session_id}")
+            
+    except Exception as e:
+        print(f"Error in summary: {e}")
+    finally:
+        db.close()
+        
+    # Clear session from memory and LTM cache
+    if session_id in sessions:
+        try:
+            del sessions[session_id]
+        except:
+            pass
+    clear_ltm_cache(session_id)
+
+@app.post('/chat/end-session')
+async def end_session(req: schema.Chat, background_tasks: BackgroundTasks, request: Request, db: Session = Depends(get_db)):
+    user = get_user_with_error(request, db)
+    
+    # Check if there is anything to summarize
+    history = get_session(req.session_id)
+    if not history or len(history) <= 1:
+        return {"message": "No session history to summarize"}
+
+    # Add to background tasks
+    background_tasks.add_task(process_session_end, req.session_id, user.id)
+    
+    return {
+        "message": "Session end initiated in background"
+    }

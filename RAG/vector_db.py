@@ -15,5 +15,5 @@ def get_vector_db(file_bytes):
     splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     chunks = splitter.split_documents(docs)
 
-    embeddings = HuggingFaceEmbeddings(model='all-MiniLM-L6-v2')
+    embeddings = HuggingFaceEmbeddings(model='sentence-transformers/all-MiniLM-L6-v2')
     return FAISS.from_documents(chunks, embeddings)

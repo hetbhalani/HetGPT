@@ -11,6 +11,7 @@ from Tools.tool_routing import tool_call
 from RAG.rag_final import RAG_ans
 from LLM.cs_model import cs_model_call
 from LLM.general_model import general_model_call
+from RAG.long_term_RAG import LtmRag
 from typing import List, Dict
 
 load_dotenv()
@@ -103,13 +104,38 @@ def plan_task(query: str):
         print(e)
         return []
 
-def route(query: str, session_id: str, file_path: str = None):
+
+ltm_cache: Dict[str, LtmRag] = {}
+
+def clear_ltm_cache(session_id: str):
+    if session_id in ltm_cache:
+        del ltm_cache[session_id]
+
+def route(query: str, session_id: str, file_path: str = None, ltm: str = None):
     global sessions
     res = ""
     
     messages = get_session(session_id)
     
-    messages.append(HumanMessage(content=query))
+    ltm_facts = ""
+    if ltm:
+        try:
+            if session_id not in ltm_cache:
+                print(f"Initializing LTM Rag for session: {session_id}")
+                ltm_cache[session_id] = LtmRag(ltm)
+            
+            rag = ltm_cache[session_id]
+            ltm_results = rag.LTM_RAG(query)
+            if ltm_results:
+                ltm_facts = "\n".join([doc.page_content for doc in ltm_results])
+        except Exception as e:
+            print(f"LTM RAG error: {e}")
+
+    current_query = query
+    if ltm_facts:
+        current_query = f"Relevant facts from long-term memory:\n{ltm_facts}\n\nUser query: {query}"
+
+    messages.append(HumanMessage(content=current_query))
     messages = trim_memory(messages)
     sessions[session_id] = messages
     
@@ -130,7 +156,7 @@ def route(query: str, session_id: str, file_path: str = None):
     # Fallback
     if not data:
         print("Plan is empty, defaulting to GENERAL")
-        data = [{'task': query, 'route': 'GENERAL'}]
+        data = [{"task": current_query, "route": "GENERAL"}]
         
     print(data)
     
