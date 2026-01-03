@@ -16,3 +16,4 @@ pymupdf
 sentence-transformers
 duckduckgo-search
 wikipedia
+email-validator
