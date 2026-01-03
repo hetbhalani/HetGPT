@@ -21,6 +21,7 @@ llm = ChatHuggingFace(llm=model)
 
 def general_model_call(query: str, history: list = None):
     try:
+        # manage the history
         if history:
             messages = list(history)
         else:

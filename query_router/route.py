@@ -3,15 +3,17 @@ from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
 from langchain_ollama import ChatOllama
 from langchain.messages import SystemMessage, HumanMessage, AIMessage
 from dotenv import load_dotenv
+import logging
 import json
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from Tools.tool_routing import tool_call
-from RAG.rag_final import RAG_ans
+
 from LLM.cs_model import cs_model_call
 from LLM.general_model import general_model_call
 from RAG.long_term_RAG import LtmRag
+from RAG.session_vectordb import get_session_vectordb, store_document, query_session_docs, clear_session_vectordb, session_vectordb_cache
 from typing import List, Dict
 
 load_dotenv()
@@ -34,22 +36,13 @@ model = ChatHuggingFace(llm=llm)
 planner_prompt = PromptTemplate(
         input_variables=["query"],
         template="""
-            You are a Task Planner for a multi-model AI system.
-            Your job is to break the user query into one or more independent subtasks and assign a route to each.
+            You are a Query Router for a multi-model AI system.
+            Your job is to classify the user query into EXACTLY ONE route.
 
             ### OUTPUT REQUIREMENTS:
-            - Output MUST be ONLY a valid JSON array. No explanation, no notes, no natural language.
-            - Each element MUST contain exactly two keys: "task" and "route".
-            - Tasks must be short imperative commands.
-            - If there are NO explicit tasks in the query, return [].
-
-            ### ABSOLUTE RULES (MUST FOLLOW):
-            - NEVER infer or invent additional tasks that are not explicitly and clearly asked by the user.
-            - NEVER add instructional or general-explanation tasks unless directly requested.
-            - NEVER assume the user wants code, explanation, or strategy unless they explicitly ask.
-            - If a single clear question exists, produce only ONE task.
-            - Do NOT add tasks like "Explain", "Describe", "Improve", "Fix" unless those words appear in the query.
-            - Do NOT split the Task if NOT needed, only split when there are multiple questions in the query
+            - Output MUST be a valid JSON array containing EXACTLY ONE object.
+            - The object MUST contain keys: "task" and "route".
+            - "task" should be the original query or a refined version of it.
             
             ### ROUTE DEFINITIONS:
             - "CS" → programming, code, debugging, algorithm design, or Computer Science conceptual explanations.
@@ -57,16 +50,8 @@ planner_prompt = PromptTemplate(
             - "GENERAL" → Greetings, small talk, general knowledge that doesn't need external tools, or when the query is unclear/ambiguous.
             - If unsure, choose "GENERAL".
 
-            ### SPLITTING RULES:
-            - Split only when the query clearly contains multiple separate instructions ("and", "also", "then").
-            - Do NOT split based on assumptions.
-
             ### JSON EXAMPLE:
             [
-                {{
-                    "task": "Find the current weather in Junagadh",
-                    "route": "TOOLS"
-                }},
                 {{
                     "task": "Write Python code to add two numbers",
                     "route": "CS"
@@ -78,58 +63,69 @@ planner_prompt = PromptTemplate(
         """
 )
 
-sessions: Dict[str, List] = {}
+# init session
+sessions: Dict[str, List[Dict[str, List]]] = {}
 
+
+# get session by id
 def get_session(session_id: str):
     if session_id not in sessions:
-        sessions[session_id] = [
+        sessions[session_id] = {'after_docs': False}
+        sessions[session_id]['messages'] = [
             SystemMessage(content="You are a helpful assistant. Answer questions shortly.")
         ]
     return sessions[session_id]
 
+# keep only last 10 messages in the history
 def trim_memory(msg: List):
     system = msg[:1]
     rest = msg[-10:] # last 5 pairs
     return system + rest
 
+# get the instruction (where to route the query)
 def plan_task(query: str):
     raw = model.invoke(planner_prompt.format(query=query))
-    print(raw)
-    print("=================================================================")
+    logging.debug(f"Planner raw output: {raw}")
     try:
         content = raw.content.strip()
         return json.loads(content)
     
     except Exception as e:
-        print(e)
+        logging.error(f"Planner error: {e}")
         return []
 
-
+# long term store
 ltm_cache: Dict[str, LtmRag] = {}
 
+# clear the ltm for the current session id (after session ends)
 def clear_ltm_cache(session_id: str):
     if session_id in ltm_cache:
         del ltm_cache[session_id]
+    #also clear session vector db
+    clear_session_vectordb(session_id)
 
-def route(query: str, session_id: str, file_path: str = None, ltm: str = None):
+# route the query to corresponding LLM
+def route(query: str, session_id: str, ltm: str = None):
     global sessions
     res = ""
     
-    messages = get_session(session_id)
+    # get the chat history
+    messages = (get_session(session_id))['messages']
     
     ltm_facts = ""
     if ltm:
         try:
             if session_id not in ltm_cache:
-                print(f"Initializing LTM Rag for session: {session_id}")
+                logging.info(f"Initializing LTM Rag for session: {session_id}")
                 ltm_cache[session_id] = LtmRag(ltm)
             
+            # Init the LTM RAG db
             rag = ltm_cache[session_id]
-            ltm_results = rag.LTM_RAG(query)
+            ltm_results = rag.LTM_RAG(query) # retrive relevent records from LTM
             if ltm_results:
                 ltm_facts = "\n".join([doc.page_content for doc in ltm_results])
         except Exception as e:
-            print(f"LTM RAG error: {e}")
+            logging.error(f"LTM RAG error: {e}")
 
     current_query = query
     if ltm_facts:
@@ -137,28 +133,45 @@ def route(query: str, session_id: str, file_path: str = None, ltm: str = None):
 
     messages.append(HumanMessage(content=current_query))
     messages = trim_memory(messages)
-    sessions[session_id] = messages
+    sessions[session_id]['messages'] = messages
     
-    # RAG (when file upload)
-    if file_path:
-        try:
-            res = RAG_ans(query, file_path)
-            messages.append(AIMessage(content=res))
-            sessions[session_id] = trim_memory(messages)
-            return res
-        
-        except Exception as e:
-            print(f"RAG error: {e}")
-            return None
+    session = get_session(session_id)
+    
+    if session.get('after_docs', False): #default to False
+
+        docs = query_session_docs(session_id, query)
+        if docs:
+            logging.info(f"found {len(docs)} docs")
+
+            context = "\n\n".join([doc.page_content for doc in docs])
+            rag_query = f"Use the following document context to answer the question. If the context doesn't contain relevant information, response with EXACTLY 'NO_CONTEXT'.\n\nContext:\n{context}\n\nQuestion: {query}"
+            
+            rag_messages = list(messages)
+            if rag_messages and isinstance(rag_messages[-1], HumanMessage):
+                rag_messages[-1] = HumanMessage(content=rag_query)
+            else:
+                rag_messages.append(HumanMessage(content=rag_query))
+                
+            rag_response = general_model_call(rag_query, rag_messages)
+            
+            if rag_response and "NO_CONTEXT" not in rag_response:
+                messages.append(AIMessage(content=rag_response))
+                sessions[session_id]['messages'] = trim_memory(messages)
+                return rag_response
+            
+            logging.info("RAG found documents but they were not relevant (NO_CONTEXT returned). Falling back to planner.")
+
+        # if no similar documents then normal routing
+        logging.info("No similar documents found")
 
     data = plan_task(query)
     
-    # Fallback
+    # fallback for Planner
     if not data:
-        print("Plan is empty, defaulting to GENERAL")
+        logging.warning("Plan is empty, defaulting to GENERAL")
         data = [{"task": current_query, "route": "GENERAL"}]
         
-    print(data)
+    logging.info(f"Routed tasks: {data}")
     
     for i in data:
         task = i['task']
@@ -174,7 +187,7 @@ def route(query: str, session_id: str, file_path: str = None, ltm: str = None):
             out = general_model_call(task, messages)
             
         else:
-            print("Unknown route, defaulting to GENERAL")
+            logging.warning("Unknown route, defaulting to GENERAL")
             out = general_model_call(task, messages)
         
         if out is None or out == "":
@@ -183,19 +196,6 @@ def route(query: str, session_id: str, file_path: str = None, ltm: str = None):
         res += str(out) + '\n\n'
     
     messages.append(AIMessage(content=res))
-    sessions[session_id] = trim_memory(messages)
+    sessions[session_id]['messages'] = trim_memory(messages)
     
     return res
-
-
-# query = "write me a code to add two numbers?"
-
-# print(route(query))
-
-# a = [{'task': 'get the name of the president of India', 'route': 'CS'}, {'task': 'get top 5 facts about the president of India', 'route': 'TOOLS'}]
-
-# for i in a:
-#     if(i['route'] == 'TOOLS'):
-#         print("tools")
-#     else:
-#         print("cs")

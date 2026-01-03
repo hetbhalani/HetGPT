@@ -1,8 +1,13 @@
-from fastapi import FastAPI, HTTPException, Depends, Response, Request, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Depends, Response, Request, BackgroundTasks, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import sys
 import os
+
+import logging
+
+# basic logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -13,6 +18,7 @@ from api.database import engine, get_db, SessionLocal
 from RAG.long_term_RAG import LtmRag
 from LLM.summary_model import summary_model_call
 from query_router.route import get_session, sessions, clear_ltm_cache
+from RAG.session_vectordb import store_document
 
 model.Base.metadata.create_all(bind=engine)
 
@@ -36,6 +42,7 @@ app.add_middleware(
 COOKIE_NAME = "access_token"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 
+# retrive the JWT token from cookie
 def get_current_user_cookie(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get(COOKIE_NAME)
     
@@ -54,6 +61,7 @@ def get_current_user_cookie(request: Request, db: Session = Depends(get_db)):
     user = db.query(model.Users).filter(model.Users.id == user_id).first()
     return user
 
+#raise error if user does not exist
 def get_user_with_error(request: Request, db: Session = Depends(get_db)):
     user = get_current_user_cookie(request, db)
     if not user:
@@ -68,7 +76,7 @@ def user_signup(user: schema.UserCreate, response: Response, db: Session = Depen
     if db_user:
         raise HTTPException(status_code=400, detail="Email already exists")
     
-    hashed_pass = auth.get_pass_hash(user.password)
+    hashed_pass = auth.get_pass_hash(user.password) # hash the password
     
     new_user = model.Users(
         name=user.name,
@@ -124,7 +132,8 @@ def user_login(user: schema.UserLogin, response: Response, db: Session = Depends
     )
     
     return {"message": "Login successful", "id": db_user.id, "name": db_user.name}
-        
+
+# Check if user is already authenticated
 @app.get('/auth/me')
 def get_me(current_user = Depends(get_user_with_error)):
     return {
@@ -133,6 +142,7 @@ def get_me(current_user = Depends(get_user_with_error)):
         "email": current_user.email
     }
 
+# logout
 @app.post('/auth/logout')
 def logout(response: Response):
     response.delete_cookie(key=COOKIE_NAME)
@@ -178,37 +188,66 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 def chat(req : schema.Chat, request: Request, db: Session = Depends(get_db)):
     if req.query:
         try:
-            # Fetch LTM context if user is logged in
+            # retrive long term memory of auth user
             user = get_current_user_cookie(request, db)
             ltm_context = user.context if user else ""
             
             res = route(
                 query=req.query,
                 session_id=req.session_id,
-                file_path=req.path if req.path else None,
                 ltm=ltm_context
             )
             
             return {"response": res}
         
         except Exception as e:
-            print("error: ",e)
+            logging.error(f"error: {e}")
             raise HTTPException(500, "Something went wrong")
 
+# upload file to vector DB (without query)
+@app.post('/upload')
+async def upload_file(file: UploadFile = File(...), session_id: str = Form(...), request: Request = None, db: Session = Depends(get_db)):
+    try:
+        # read file
+        file_content = await file.read()
+        file_name = file.filename
+        
+        # store in vector DB
+        success = store_document(session_id, file_content, file_name)
+        
+        if success:
+            # mark session as having documents
+            session = get_session(session_id)
+            sessions[session_id]['after_docs'] = True
+            return {
+                "message": "File uploaded and stored successfully",
+                "file_name": file_name,
+                "session_id": session_id
+            }
+        else:
+            raise HTTPException(400, "Failed to process file")
+    
+    except Exception as e:
+        logging.error(f"Upload error: {e}")
+        logging.exception("Exception occurred during file upload")
+        raise HTTPException(500, f"Upload failed: {str(e)}")
+
+# after the session end
 def process_session_end(session_id: str, user_id: int):
-    # This runs in background
+    # background process (FastAPI)
     db = SessionLocal()
     try:
         user = db.query(model.Users).filter(model.Users.id == user_id).first()
         if not user:
             return
 
-        history = get_session(session_id)
+        session = get_session(session_id)
+        history = session.get('messages', [])
         if not history or len(history) <= 1:
             return
 
-        print(f"start summary: {session_id}")
-        new_memories = summary_model_call(history)
+        logging.info(f"start summary: {session_id}")
+        new_memories = summary_model_call(history) # call the summary model to generate LTM
         
         if new_memories:
             if user.context:
@@ -216,10 +255,10 @@ def process_session_end(session_id: str, user_id: int):
             else:
                 user.context = new_memories
             db.commit()
-            print(f"summary complete: {session_id}")
+            logging.info(f"summary complete: {session_id}")
             
     except Exception as e:
-        print(f"Error in summary: {e}")
+        logging.error(f"Error in summary: {e}")
     finally:
         db.close()
         
@@ -231,12 +270,14 @@ def process_session_end(session_id: str, user_id: int):
             pass
     clear_ltm_cache(session_id)
 
+# session end route
 @app.post('/chat/end-session')
 async def end_session(req: schema.Chat, background_tasks: BackgroundTasks, request: Request, db: Session = Depends(get_db)):
     user = get_user_with_error(request, db)
     
     # Check if there is anything to summarize
-    history = get_session(req.session_id)
+    session = get_session(req.session_id)
+    history = session.get('messages', [])
     if not history or len(history) <= 1:
         return {"message": "No session history to summarize"}
 

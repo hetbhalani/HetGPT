@@ -43,6 +43,7 @@ prompt = PromptTemplate(
 #     temperature=0,
 # )
 
+# get history and convert it to plain text
 def messages_to_text(history):
     clean_history = []
     for m in history:

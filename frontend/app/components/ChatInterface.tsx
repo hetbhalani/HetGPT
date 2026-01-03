@@ -35,7 +35,7 @@ function ChatContent() {
     const hasStarted = isChatRoute;
 
     const [messages, setMessages] = useState<Message[]>([]);
-    const [sessionId, setSessionId] = useState(() => uuidv4());
+    const [sessionId, setSessionId] = useState(() => searchParams.get('sessionId') || uuidv4());
     const [isLoading, setIsLoading] = useState(false);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [pendingMessage, setPendingMessage] = useState<{ content: string; file?: File } | null>(null);
@@ -106,13 +106,18 @@ function ChatContent() {
     useEffect(() => {
         if (isChatRoute && !isInitialized && !hasSentQuery.current) {
             const query = searchParams.get('q');
+            const urlFilePath = searchParams.get('filePath');
+
             if (query) {
                 hasSentQuery.current = true;
-                sendMessage(query);
+                sendMessage(query, undefined, urlFilePath || undefined);
 
                 // Clear the query from the URL without reloading
                 const params = new URLSearchParams(searchParams.toString());
                 params.delete('q');
+                params.delete('sessionId');
+                params.delete('filePath');
+
                 const newQuery = params.toString();
                 const newPath = pathname + (newQuery ? `?${newQuery}` : '');
                 router.replace(newPath);
@@ -128,7 +133,7 @@ function ChatContent() {
         }
     }, [messages, isLoading, hasStarted]);
 
-    const sendMessage = async (content: string, file?: File) => {
+    const sendMessage = async (content: string, file?: File, preUploadedPath?: string) => {
         // Double check route
         if (!isChatRoute) {
             router.push(`/chat?q=${encodeURIComponent(content)}`);
@@ -138,12 +143,37 @@ function ChatContent() {
         const userMessage: Message = {
             id: Date.now().toString(),
             role: "user",
-            content: file ? `${content}\n[Attached: ${file.name}]` : content,
+            content: file ? `${content}\n[Attached: ${file.name}]` : (preUploadedPath ? `${content}\n[Attached PDF]` : content),
         };
         setMessages((prev) => [...prev, userMessage]);
         setIsLoading(true);
 
         try {
+            let filePath: string | null = preUploadedPath || null;
+
+            // If file is attached and not pre-uploaded, upload it first
+            if (file && !filePath) {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('session_id', sessionId);
+
+                const uploadResponse = await fetch('http://localhost:8000/upload', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+
+                if (uploadResponse.ok) {
+                    const uploadData = await uploadResponse.json();
+                    filePath = uploadData.file_path;
+                    console.log('File uploaded successfully:', filePath);
+                } else {
+                    console.error('File upload failed');
+                    const errText = await uploadResponse.text();
+                    throw new Error(`File upload failed: ${uploadResponse.status} ${errText}`);
+                }
+            }
+
             const response = await fetch('http://localhost:8000/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -151,9 +181,15 @@ function ChatContent() {
                 body: JSON.stringify({
                     query: content,
                     session_id: sessionId,
-                    path: null
+                    path: filePath
                 })
             });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.detail || "API Error");
+            }
+
             const data = await response.json();
 
             let aiContent: string;
@@ -188,6 +224,34 @@ function ChatContent() {
 
     const handleSendMessage = async (content: string, file?: File) => {
         if (!isChatRoute) {
+            if (file) {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('session_id', sessionId);
+
+                    const uploadResponse = await fetch('http://localhost:8000/upload', {
+                        method: 'POST',
+                        credentials: 'include',
+                        body: formData
+                    });
+
+                    if (uploadResponse.ok) {
+                        const uploadData = await uploadResponse.json();
+                        const filePath = uploadData.file_path;
+                        router.push(`/chat?q=${encodeURIComponent(content)}&sessionId=${sessionId}&filePath=${encodeURIComponent(filePath)}`);
+                        return;
+                    } else {
+                        console.error('File upload failed');
+                        alert("Failed to upload file. Please try again.");
+                        return;
+                    }
+                } catch (e) {
+                    console.error("Upload error", e);
+                    alert("Error uploading file.");
+                    return;
+                }
+            }
             router.push(`/chat?q=${encodeURIComponent(content)}`);
             return;
         }
