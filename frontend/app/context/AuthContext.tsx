@@ -25,7 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const checkAuth = async (): Promise<boolean> => {
         try {
-            const response = await fetch("http://localhost:8000/auth/me", {
+            const response = await fetch("https://hetgpt.onrender.com/auth/me", {
                 credentials: "include",
             });
 
@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const logout = async () => {
         try {
-            await fetch("http://localhost:8000/auth/logout", {
+            await fetch("https://hetgpt.onrender.com/auth/logout", {
                 method: "POST",
                 credentials: "include",
             });

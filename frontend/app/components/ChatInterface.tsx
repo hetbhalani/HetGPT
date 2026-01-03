@@ -52,7 +52,7 @@ function ChatContent() {
         const handleBeforeUnload = () => {
             if (messages.length > 0 && isAuthenticated) {
                 // Use fetch with keepalive to ensure the request finishes even if the tab closes
-                fetch('http://localhost:8000/chat/end-session', {
+                fetch('https://hetgpt.onrender.com/chat/end-session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -82,7 +82,7 @@ function ChatContent() {
             console.log("Ending session and summarizing in background...");
             try {
                 // We don't await this so the UI stays responsive
-                fetch('http://localhost:8000/chat/end-session', {
+                fetch('https://hetgpt.onrender.com/chat/end-session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -157,7 +157,7 @@ function ChatContent() {
                 formData.append('file', file);
                 formData.append('session_id', sessionId);
 
-                const uploadResponse = await fetch('http://localhost:8000/upload', {
+                const uploadResponse = await fetch('https://hetgpt.onrender.com/upload', {
                     method: 'POST',
                     credentials: 'include',
                     body: formData
@@ -174,7 +174,7 @@ function ChatContent() {
                 }
             }
 
-            const response = await fetch('http://localhost:8000/chat', {
+            const response = await fetch('https://hetgpt.onrender.com/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -230,7 +230,7 @@ function ChatContent() {
                     formData.append('file', file);
                     formData.append('session_id', sessionId);
 
-                    const uploadResponse = await fetch('http://localhost:8000/upload', {
+                    const uploadResponse = await fetch('https://hetgpt.onrender.com/upload', {
                         method: 'POST',
                         credentials: 'include',
                         body: formData

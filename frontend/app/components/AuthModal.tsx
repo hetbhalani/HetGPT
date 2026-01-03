@@ -74,7 +74,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = "login" }:
                 ? { email, password }
                 : { name, email, password };
 
-            const response = await fetch(`http://localhost:8000${endpoint}`, {
+            const response = await fetch(`https://hetgpt.onrender.com${endpoint}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
