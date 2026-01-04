@@ -48,8 +48,9 @@ try:
         while not pc.describe_index(INDEX_NAME).status['ready']:
             time.sleep(1)
         logging.info("Pinecone index created successfully")
-    except Exception as e:
-        logging.error(f"Error checking/creating Pinecone index: {e}")
+    
+except Exception as e:
+    logging.error(f"Error checking/creating Pinecone index: {e}")
 
 class SessionVectorDB:    
     def __init__(self, session_id: str):
