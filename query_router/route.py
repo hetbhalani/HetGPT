@@ -13,7 +13,7 @@ from Tools.tool_routing import tool_call
 from LLM.cs_model import cs_model_call
 from LLM.general_model import general_model_call
 from RAG.long_term_RAG import LtmRag
-from RAG.session_vectordb import get_session_vectordb, store_document, query_session_docs, clear_session_vectordb, session_vectordb_cache
+from RAG.session_vectordb import store_document, query_session_docs, clear_session_vectordb
 from typing import List, Dict
 
 load_dotenv()

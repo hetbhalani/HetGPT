@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import sys
 import os
-
+import shutil
+import tempfile
 import logging
 
 # basic logging
@@ -202,21 +203,26 @@ def chat(req : schema.Chat, request: Request, db: Session = Depends(get_db)):
 # upload file to vector DB (without query)
 @app.post('/upload')
 async def upload_file(file: UploadFile = File(...), session_id: str = Form(...), request: Request = None, db: Session = Depends(get_db)):
+    temp_file_path = None
     try:
-        # read file
-        file_content = await file.read()
-        file_name = file.filename
+        # Create temp file
+        suffix = os.path.splitext(file.filename)[1] or '.pdf'
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            temp_file_path = tmp.name
         
-        # store in vector DB
-        success = store_document(session_id, file_content, file_name)
+        logging.info(f"File saved to temp path: {temp_file_path}")
+        
+        # store in vector DB (Pinecone) - Pass Path
+        success = store_document(session_id, temp_file_path, file.filename)
         
         if success:
             # mark session as having documents
             session = get_session(session_id)
             sessions[session_id]['after_docs'] = True
             return {
-                "message": "File uploaded and stored successfully",
-                "file_name": file_name,
+                "message": "File processed and stored in Pinecone successfully",
+                "file_name": file.filename,
                 "session_id": session_id
             }
         else:
@@ -226,6 +232,14 @@ async def upload_file(file: UploadFile = File(...), session_id: str = Form(...),
         logging.error(f"Upload error: {e}")
         logging.exception("Exception occurred during file upload")
         raise HTTPException(500, f"Upload failed: {str(e)}")
+        
+    finally:
+        #clean up temp file
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.unlink(temp_file_path)
+            except Exception as e:
+                logging.error(f"Failed to delete temp file: {e}")
 
 # after the session end
 def process_session_end(session_id: str, user_id: int):

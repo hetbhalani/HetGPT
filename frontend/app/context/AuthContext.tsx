@@ -19,13 +19,15 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     const checkAuth = async (): Promise<boolean> => {
         try {
-            const response = await fetch("https://hetgpt.onrender.com/auth/me", {
+            const response = await fetch(`${BACKEND_URL}/auth/me`, {
                 credentials: "include",
             });
 
@@ -46,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const logout = async () => {
         try {
-            await fetch("https://hetgpt.onrender.com/auth/logout", {
+            await fetch(`${BACKEND_URL}/auth/logout`, {
                 method: "POST",
                 credentials: "include",
             });

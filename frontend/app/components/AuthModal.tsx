@@ -13,6 +13,8 @@ interface AuthModalProps {
 
 type AuthMode = "login" | "signup";
 
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
+
 export function AuthModal({ isOpen, onClose, onSuccess, initialMode = "login" }: AuthModalProps) {
     const [mode, setMode] = useState<AuthMode>(initialMode);
     const [isLoading, setIsLoading] = useState(false);
@@ -74,7 +76,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = "login" }:
                 ? { email, password }
                 : { name, email, password };
 
-            const response = await fetch(`https://hetgpt.onrender.com${endpoint}`, {
+            const response = await fetch(`${BACKEND_URL}${endpoint}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
