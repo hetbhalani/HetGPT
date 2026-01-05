@@ -27,15 +27,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const checkAuth = async (): Promise<boolean> => {
         try {
-            const token = localStorage.getItem("hetgpt_token");
+            // Get token from localStorage for cross-domain auth
+            const token = localStorage.getItem("access_token");
             const headers: HeadersInit = {};
             if (token) {
                 headers["Authorization"] = `Bearer ${token}`;
             }
 
             const response = await fetch(`${BACKEND_URL}/auth/me`, {
+                credentials: "include",
                 headers,
-                credentials: "include", // Keep for hybrid
             });
 
             if (response.ok) {
@@ -44,10 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return true;
             } else {
                 setUser(null);
-                // Only remove token if explicitly unauthorized
-                if (response.status === 401) {
-                    localStorage.removeItem("hetgpt_token");
-                }
+                // Clear invalid token
+                localStorage.removeItem("access_token");
                 return false;
             }
         } catch (error) {
@@ -59,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const logout = async () => {
         try {
-            const token = localStorage.getItem("hetgpt_token");
+            const token = localStorage.getItem("access_token");
             const headers: HeadersInit = {};
             if (token) {
                 headers["Authorization"] = `Bearer ${token}`;
@@ -67,13 +66,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             await fetch(`${BACKEND_URL}/auth/logout`, {
                 method: "POST",
-                headers,
                 credentials: "include",
+                headers,
             });
         } catch (error) {
             console.error("Logout failed:", error);
         } finally {
-            localStorage.removeItem("hetgpt_token");
+            localStorage.removeItem("access_token");
             setUser(null);
         }
     };
