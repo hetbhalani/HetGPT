@@ -31,7 +31,7 @@ app.add_middleware(
     allow_origin_regex=".*", 
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "Authorization", "Content-Type"],
 )
 
 #cookie setting
@@ -40,11 +40,14 @@ COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 
 # retrive the JWT token from cookie
 def get_current_user_cookie(request: Request, db: Session = Depends(get_db)):
+    # Debug: log all headers received
+    logging.info(f"[Auth] Headers received: {dict(request.headers)}")
+    
     token = request.cookies.get(COOKIE_NAME)
     
     # Fallback to auth header
     if not token:
-        auth_header = request.headers.get("Authorization")
+        auth_header = request.headers.get("authorization")  # headers are lowercase in starlette
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ")[1]
             logging.info("[Auth] Using Authorization header token")
