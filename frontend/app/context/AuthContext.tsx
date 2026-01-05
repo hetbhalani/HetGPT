@@ -27,8 +27,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const checkAuth = async (): Promise<boolean> => {
         try {
+            const token = localStorage.getItem("hetgpt_token");
+            const headers: HeadersInit = {};
+            if (token) {
+                headers["Authorization"] = `Bearer ${token}`;
+            }
+
             const response = await fetch(`${BACKEND_URL}/auth/me`, {
-                credentials: "include",
+                headers,
+                credentials: "include", // Keep for hybrid
             });
 
             if (response.ok) {
@@ -37,6 +44,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return true;
             } else {
                 setUser(null);
+                // Only remove token if explicitly unauthorized
+                if (response.status === 401) {
+                    localStorage.removeItem("hetgpt_token");
+                }
                 return false;
             }
         } catch (error) {
@@ -48,13 +59,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const logout = async () => {
         try {
+            const token = localStorage.getItem("hetgpt_token");
+            const headers: HeadersInit = {};
+            if (token) {
+                headers["Authorization"] = `Bearer ${token}`;
+            }
+
             await fetch(`${BACKEND_URL}/auth/logout`, {
                 method: "POST",
+                headers,
                 credentials: "include",
             });
         } catch (error) {
             console.error("Logout failed:", error);
         } finally {
+            localStorage.removeItem("hetgpt_token");
             setUser(null);
         }
     };

@@ -54,9 +54,13 @@ function ChatContent() {
         const handleBeforeUnload = () => {
             if (messages.length > 0 && isAuthenticated) {
                 // Use fetch with keepalive to ensure the request finishes even if the tab closes
+                const token = localStorage.getItem("hetgpt_token");
+                const headers: HeadersInit = { 'Content-Type': 'application/json' };
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+
                 fetch(`${BACKEND_URL}/chat/end-session`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers,
                     credentials: 'include',
                     body: JSON.stringify({
                         query: "", // Not used by the endpoint for summarization
@@ -91,9 +95,13 @@ function ChatContent() {
             console.log("Ending session and summarizing in background...");
             try {
                 // We don't await this so the UI stays responsive
+                const token = localStorage.getItem("hetgpt_token");
+                const headers: HeadersInit = { 'Content-Type': 'application/json' };
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+
                 fetch(`${BACKEND_URL}/chat/end-session`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers,
                     credentials: 'include',
                     body: JSON.stringify({
                         query: "",
@@ -114,9 +122,13 @@ function ChatContent() {
     // Initialize LTM when authenticated
     useEffect(() => {
         if (isAuthenticated && sessionId) {
+            const token = localStorage.getItem("hetgpt_token");
+            const headers: HeadersInit = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
             fetch(`${BACKEND_URL}/chat/init`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 credentials: 'include',
                 body: JSON.stringify({
                     query: "", // Unused
@@ -181,8 +193,13 @@ function ChatContent() {
                 formData.append('file', file);
                 formData.append('session_id', sessionId);
 
+                const token = localStorage.getItem("hetgpt_token");
+                const headers: HeadersInit = {};
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+
                 const uploadResponse = await fetch(`${BACKEND_URL}/upload`, {
                     method: 'POST',
+                    headers,
                     credentials: 'include',
                     body: formData
                 });
@@ -198,9 +215,13 @@ function ChatContent() {
                 }
             }
 
+            const token = localStorage.getItem("hetgpt_token");
+            const headers: HeadersInit = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
             const response = await fetch(`${BACKEND_URL}/chat`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 credentials: 'include',
                 body: JSON.stringify({
                     query: content,
@@ -254,8 +275,13 @@ function ChatContent() {
                     formData.append('file', file);
                     formData.append('session_id', sessionId);
 
+                    const token = localStorage.getItem("hetgpt_token");
+                    const headers: HeadersInit = {};
+                    if (token) headers['Authorization'] = `Bearer ${token}`;
+
                     const uploadResponse = await fetch(`${BACKEND_URL}/upload`, {
                         method: 'POST',
+                        headers,
                         credentials: 'include',
                         body: formData
                     });

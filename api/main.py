@@ -38,9 +38,15 @@ app.add_middleware(
 COOKIE_NAME = "access_token"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 
-# retrive the JWT token from cookie
-def get_current_user_cookie(request: Request, db: Session = Depends(get_db)):
+# retrive the JWT token from cookie or header
+def get_current_user(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get(COOKIE_NAME)
+    
+    # Check header if cookie is missing
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
     
     if not token:
         return None
@@ -59,7 +65,7 @@ def get_current_user_cookie(request: Request, db: Session = Depends(get_db)):
 
 #raise error if user does not exist
 def get_user_with_error(request: Request, db: Session = Depends(get_db)):
-    user = get_current_user_cookie(request, db)
+    user = get_current_user(request, db)
     if not user:
         raise HTTPException(status_code=401, detail="Not Authenticated")
     return user    
@@ -87,6 +93,7 @@ def user_signup(user: schema.UserCreate, response: Response, db: Session = Depen
     
     access_token = auth.create_access_token(data = {"id": new_user.id, "email": new_user.email})
     
+    # Still set cookie for hybrid support
     response.set_cookie(
         key=COOKIE_NAME,
         value=access_token,
@@ -100,7 +107,8 @@ def user_signup(user: schema.UserCreate, response: Response, db: Session = Depen
         "message": "Signup successful",
         "id": new_user.id,
         "name": new_user.name,
-        "email": new_user.email
+        "email": new_user.email,
+        "access_token": access_token
     }
 
 # LogIn
@@ -118,6 +126,7 @@ def user_login(user: schema.UserLogin, response: Response, db: Session = Depends
         data={"id": db_user.id, "email": db_user.email}
     )
     
+    # Still set cookie for hybrid support
     response.set_cookie(
         key=COOKIE_NAME,
         value=access_token,
@@ -127,7 +136,14 @@ def user_login(user: schema.UserLogin, response: Response, db: Session = Depends
         samesite="none"
     )
     
-    return {"message": "Login successful", "id": db_user.id, "name": db_user.name}
+    # Return token in body
+    return {
+        "message": "Login successful", 
+        "id": db_user.id, 
+        "name": db_user.name, 
+        "email": db_user.email,
+        "access_token": access_token
+    }
 
 # Check if user is already authenticated
 @app.get('/auth/me')
@@ -185,7 +201,7 @@ def chat(req : schema.Chat, request: Request, db: Session = Depends(get_db)):
     if req.query:
         try:
             # retrive long term memory of auth user
-            user = get_current_user_cookie(request, db)
+            user = get_current_user(request, db)
             ltm_context = user.context if user else ""
             
             res = route(
@@ -204,7 +220,7 @@ def chat(req : schema.Chat, request: Request, db: Session = Depends(get_db)):
 @app.post('/chat/init')
 def init_chat(req: schema.Chat, request: Request, db: Session = Depends(get_db)):
     try:
-        user = get_current_user_cookie(request, db)
+        user = get_current_user(request, db)
         if user:
             ltm_context = user.context
             if ltm_context:

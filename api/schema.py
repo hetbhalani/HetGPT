@@ -18,6 +18,7 @@ class UserResponse(UserBase):
     id: int
     name: str
     context: Optional[str] = None
+    access_token: Optional[str] = None # Added token
     
     class Config:
         from_attributes = True
