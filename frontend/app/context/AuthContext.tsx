@@ -27,16 +27,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const checkAuth = async (): Promise<boolean> => {
         try {
-            // Get token from localStorage for cross-domain auth
             const token = localStorage.getItem("access_token");
-            console.log("[Auth] Token from localStorage:", token ? `${token.substring(0, 20)}...` : "null");
 
             const headers: HeadersInit = {};
             if (token) {
                 headers["Authorization"] = `Bearer ${token}`;
-                console.log("[Auth] Sending Authorization header");
-            } else {
-                console.log("[Auth] No token found in localStorage");
             }
 
             const response = await fetch(`${BACKEND_URL}/auth/me`, {

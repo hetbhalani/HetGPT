@@ -40,9 +40,6 @@ COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 
 # retrive the JWT token from cookie
 def get_current_user_cookie(request: Request, db: Session = Depends(get_db)):
-    # Debug: log all headers received
-    logging.info(f"[Auth] Headers received: {dict(request.headers)}")
-    
     token = request.cookies.get(COOKIE_NAME)
     
     # Fallback to auth header
@@ -50,16 +47,13 @@ def get_current_user_cookie(request: Request, db: Session = Depends(get_db)):
         auth_header = request.headers.get("authorization")  # headers are lowercase in starlette
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ")[1]
-            logging.info("[Auth] Using Authorization header token")
     
     if not token:
-        logging.info("[Auth] No token found in cookies or headers")
         return None
     
     payload = auth.verify_token(token)
     
     if not payload:
-        logging.info("[Auth] Token verification failed")
         return None
     
     user_id = payload.get('id') or payload.get('user_id')  # Support both keys
@@ -145,7 +139,6 @@ def user_login(user: schema.UserLogin, response: Response, db: Session = Depends
 # Check if user is already authenticated
 @app.get('/auth/me')
 def get_me(request: Request, current_user = Depends(get_user_with_error)):
-    logging.info(f"Cookies received: {request.cookies}")
     return {
         "id": current_user.id,
         "name": current_user.name,
