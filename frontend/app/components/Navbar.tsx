@@ -8,9 +8,10 @@ import { UserMenu } from "./UserMenu";
 
 interface NavbarProps {
     onNewChat?: () => void;
+    isGenerating?: boolean; // New prop
 }
 
-export function Navbar({ onNewChat }: NavbarProps) {
+export function Navbar({ onNewChat, isGenerating }: NavbarProps) {
     const { user, isAuthenticated, logout, isLoading } = useAuth();
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [authMode, setAuthMode] = useState<"login" | "signup">("login");
@@ -60,7 +61,11 @@ export function Navbar({ onNewChat }: NavbarProps) {
                         {onNewChat && (
                             <button
                                 onClick={onNewChat}
-                                className="cursor-pointer flex items-center gap-2 px-4 py-1.5 text-sm font-medium text-slate-200 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg transition-all duration-300"
+                                disabled={isGenerating}
+                                className={`flex items-center gap-2 px-4 py-1.5 text-sm font-medium border rounded-lg transition-all duration-300 ${isGenerating
+                                        ? "text-slate-500 bg-white/5 border-white/5 cursor-not-allowed opacity-50"
+                                        : "cursor-pointer text-slate-200 bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20"
+                                    }`}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
                                 New Chat

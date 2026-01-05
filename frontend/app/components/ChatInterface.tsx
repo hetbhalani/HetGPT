@@ -17,7 +17,7 @@ interface Message {
     content: string;
 }
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+const BACKEND_URL = "https://hetgpt.onrender.com";
 
 function TextShimmerBasic() {
     return (
@@ -45,7 +45,7 @@ function ChatContent() {
     const [isInitialized, setIsInitialized] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
-    const { user, isAuthenticated, checkAuth, logout } = useAuth();
+    const { user, isAuthenticated, checkAuth, logout, isLoading: isAuthLoading } = useAuth();
 
     const hasSentQuery = useRef(false);
 
@@ -70,6 +70,13 @@ function ChatContent() {
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [messages, sessionId, isAuthenticated]);
+
+    // Prefetch chat route for faster transition
+    useEffect(() => {
+        if (!isChatRoute) {
+            router.prefetch('/chat');
+        }
+    }, [isChatRoute, router]);
 
     const handleNewChat = async () => {
         const oldSessionId = sessionId;
@@ -103,6 +110,21 @@ function ChatContent() {
             }
         }
     };
+
+    // Initialize LTM when authenticated
+    useEffect(() => {
+        if (isAuthenticated && sessionId) {
+            fetch(`${BACKEND_URL}/chat/init`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    query: "", // Unused
+                    session_id: sessionId
+                })
+            }).catch(err => console.error("LTM init failed", err));
+        }
+    }, [isAuthenticated, sessionId]);
 
     // Handle initialization from URL query param
     useEffect(() => {
@@ -224,7 +246,7 @@ function ChatContent() {
         }
     };
 
-    const handleSendMessage = async (content: string, file?: File) => {
+    const executeSend = async (content: string, file?: File) => {
         if (!isChatRoute) {
             if (file) {
                 try {
@@ -256,16 +278,20 @@ function ChatContent() {
             }
             router.push(`/chat?q=${encodeURIComponent(content)}`);
             return;
-        }
-
-        if (isAuthenticated) {
+        } else {
             sendMessage(content, file);
+        }
+    };
+
+    const handleSendMessage = async (content: string, file?: File) => {
+        if (isAuthenticated) {
+            await executeSend(content, file);
             return;
         }
 
         const isAuthed = await checkAuth();
         if (isAuthed) {
-            sendMessage(content, file);
+            await executeSend(content, file);
             return;
         }
 
@@ -276,11 +302,8 @@ function ChatContent() {
     const handleAuthSuccess = () => {
         setShowAuthModal(false);
         if (pendingMessage) {
-            if (!isChatRoute) {
-                router.push(`/chat?q=${encodeURIComponent(pendingMessage.content)}`);
-            } else {
-                sendMessage(pendingMessage.content, pendingMessage.file);
-            }
+            // Directly execute send since we just successfully logged in
+            executeSend(pendingMessage.content, pendingMessage.file);
             setPendingMessage(null);
         }
     };
@@ -312,7 +335,7 @@ function ChatContent() {
             </div>
 
             {/* Navbar pinned at the top once the chat starts */}
-            {hasStarted && <Navbar onNewChat={handleNewChat} />}
+            {hasStarted && <Navbar onNewChat={handleNewChat} isGenerating={isLoading} />}
 
             {/* Top Header with Logo and User Avatar - Only for Welcome Screen */}
             {!hasStarted && (
@@ -342,7 +365,11 @@ function ChatContent() {
                         {messages.length > 0 && (
                             <button
                                 onClick={handleNewChat}
-                                className="cursor-pointer flex items-center gap-2 px-4 py-1.5 text-sm font-medium text-slate-200 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg transition-all duration-300"
+                                disabled={isLoading}
+                                className={`flex items-center gap-2 px-4 py-1.5 text-sm font-medium border rounded-lg transition-all duration-300 ${isLoading
+                                    ? "text-slate-500 bg-white/5 border-white/5 cursor-not-allowed opacity-50"
+                                    : "cursor-pointer text-slate-200 bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20"
+                                    }`}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
                                 New Chat
@@ -352,21 +379,22 @@ function ChatContent() {
 
                     {/* User Avatar or Auth Buttons */}
                     <div className="flex items-center gap-3">
-                        {isAuthenticated && user ? (
+                        {isAuthLoading ? (
+                            <div className="flex items-center justify-center w-20 h-10">
+                                <svg className="animate-spin h-5 w-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </div>
+                        ) : isAuthenticated && user ? (
                             <UserMenu user={user} logout={logout} />
                         ) : (
                             <>
                                 <button
                                     onClick={() => { setAuthMode("login"); setShowAuthModal(true); }}
-                                    className="px-4 py-2 text-sm font-medium rounded-full border border-violet-500/40 bg-transparent text-slate-100 hover:bg-violet-600/10 hover:border-violet-400 transition-all duration-200"
+                                    className="cursor-pointer px-6 py-2.5 text-sm font-medium text-white border border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10 rounded-full transition-all duration-300 backdrop-blur-sm shadow-sm"
                                 >
                                     Log in
-                                </button>
-                                <button
-                                    onClick={() => { setAuthMode("signup"); setShowAuthModal(true); }}
-                                    className="px-4 py-2 text-sm font-semibold rounded-full bg-violet-500 text-white shadow-sm hover:bg-violet-400 transition-all duration-200"
-                                >
-                                    Get started
                                 </button>
                             </>
                         )}
@@ -378,6 +406,11 @@ function ChatContent() {
                 <div className="flex-1 overflow-y-auto scroll-smooth">
                     {!hasStarted ? (
                         <div className="flex min-h-screen w-full flex-col items-center justify-center gap-8 p-6 md:p-10 text-center animate-fadeIn">
+                            {/* Pre-warm the chat route (compilation trigger) */}
+                            <div style={{ display: 'none' }} aria-hidden="true">
+                                <iframe src="/chat" tabIndex={-1} title="Preloader" />
+                            </div>
+
                             <h1 className="text-4xl md:text-6xl font-mono font-semibold tracking-tight text-slate-50 drop-shadow-[0_18px_45px_rgba(15,23,42,0.9)]">
                                 Welcome to{" "}
                                 <span
@@ -455,7 +488,7 @@ function ChatContent() {
 
                                             {/* Thinking Text */}
                                             <div className="flex">
-                                                <div className="bg-slate-900/80 backdrop-blur-xl text-slate-100 rounded-2xl rounded-tl-sm px-3 md:px-4 py-2.5 border border-white/10 shadow-[0_16px_36px_rgba(0,0,0,0.9)]">
+                                                <div className="bg-white/7 backdrop-blur-md text-slate-100 rounded-2xl rounded-tl-sm px-4 py-3 border border-white/10 shadow-sm">
                                                     <TextShimmerBasic />
                                                 </div>
                                             </div>

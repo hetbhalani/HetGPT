@@ -18,7 +18,7 @@ from api import model, schema, auth
 from api.database import engine, get_db, SessionLocal
 from RAG.long_term_RAG import LtmRag
 from LLM.summary_model import summary_model_call
-from query_router.route import get_session, sessions, clear_ltm_cache
+from query_router.route import get_session, sessions, clear_ltm_cache, init_ltm
 from RAG.session_vectordb import store_document
 
 model.Base.metadata.create_all(bind=engine)
@@ -92,8 +92,8 @@ def user_signup(user: schema.UserCreate, response: Response, db: Session = Depen
         value=access_token,
         max_age=COOKIE_MAX_AGE,
         httponly=True,
-        secure=False,
-        samesite="lax"
+        secure=True,
+        samesite="none"
     )
     
     return {
@@ -123,8 +123,8 @@ def user_login(user: schema.UserLogin, response: Response, db: Session = Depends
         value=access_token,
         max_age=COOKIE_MAX_AGE,
         httponly=True,
-        secure=False,
-        samesite="lax"
+        secure=True,
+        samesite="none"
     )
     
     return {"message": "Login successful", "id": db_user.id, "name": db_user.name}
@@ -199,6 +199,21 @@ def chat(req : schema.Chat, request: Request, db: Session = Depends(get_db)):
         except Exception as e:
             logging.error(f"error: {e}")
             raise HTTPException(500, "Something went wrong")
+
+# init chat session (pre-load LTM)
+@app.post('/chat/init')
+def init_chat(req: schema.Chat, request: Request, db: Session = Depends(get_db)):
+    try:
+        user = get_current_user_cookie(request, db)
+        if user:
+            ltm_context = user.context
+            if ltm_context:
+                init_ltm(req.session_id, ltm_context)
+                return {"message": "LTM init done"}
+        return {"message": "No LTM to init"}
+    except Exception as e:
+        logging.error(f"Init error: {e}")
+        return {"message": "Init failed", "error": str(e)}
 
 # upload file to vector DB (without query)
 @app.post('/upload')

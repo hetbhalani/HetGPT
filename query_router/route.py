@@ -104,6 +104,12 @@ def clear_ltm_cache(session_id: str):
     #also clear session vector db
     clear_session_vectordb(session_id)
 
+# Initialize LTM for a session explicitly
+def init_ltm(session_id: str, ltm: str):
+    if session_id not in ltm_cache:
+        logging.info(f"Initializing LTM Rag for session: {session_id}")
+        ltm_cache[session_id] = LtmRag(ltm)
+
 # route the query to corresponding LLM
 def route(query: str, session_id: str, ltm: str = None):
     global sessions
@@ -115,9 +121,7 @@ def route(query: str, session_id: str, ltm: str = None):
     ltm_facts = ""
     if ltm:
         try:
-            if session_id not in ltm_cache:
-                logging.info(f"Initializing LTM Rag for session: {session_id}")
-                ltm_cache[session_id] = LtmRag(ltm)
+            init_ltm(session_id, ltm)
             
             # Init the LTM RAG db
             rag = ltm_cache[session_id]
