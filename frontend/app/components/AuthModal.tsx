@@ -13,7 +13,7 @@ interface AuthModalProps {
 
 type AuthMode = "login" | "signup";
 
-const BACKEND_URL = "http://localhost:8000";
+const BACKEND_URL = "https://hetgpt.onrender.com";
 
 export function AuthModal({ isOpen, onClose, onSuccess, initialMode = "login" }: AuthModalProps) {
     const [mode, setMode] = useState<AuthMode>(initialMode);

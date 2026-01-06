@@ -18,7 +18,7 @@ interface Message {
     content: string;
 }
 
-const BACKEND_URL = "http://localhost:8000";
+const BACKEND_URL = "https://hetgpt.onrender.com";
 
 // Helper to get auth headers for cross-domain requests
 const getAuthHeaders = (): HeadersInit => {
