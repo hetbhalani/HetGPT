@@ -236,7 +236,7 @@ async def upload_file(file: UploadFile = File(...), session_id: str = Form(...),
         logging.info(f"File saved to temp path: {temp_file_path}")
         
         # store in vector DB (Pinecone) - Pass Path
-        success = store_document(session_id, temp_file_path, file.filename)
+        success, msg = store_document(session_id, temp_file_path, file.filename)
         
         if success:
             # mark session as having documents
@@ -248,7 +248,7 @@ async def upload_file(file: UploadFile = File(...), session_id: str = Form(...),
                 "session_id": session_id
             }
         else:
-            raise HTTPException(400, "Failed to process file")
+            raise HTTPException(400, detail=msg)
     
     except Exception as e:
         logging.error(f"Upload error: {e}")

@@ -57,19 +57,26 @@ class SessionVectorDB:
         self.session_id = session_id
         self.splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
                 
-    def add_documents(self, file_path: str, file_name: str) -> bool:
+    def add_documents(self, file_path: str, file_name: str) -> tuple[bool, str]:
         try:
             logging.info(f"Processing document: {file_name}")
             
             # load PDF from path
             loader = PyMuPDFLoader(file_path)
             docs = loader.load()
+
+            # check page limit
+            MAX_PAGES = 50
+            if len(docs) > MAX_PAGES:
+                msg = f"Document {file_name} exceeds page limit ({len(docs)} > {MAX_PAGES})"
+                logging.warning(msg)
+                return False, msg
             
             # split
             chunks = self.splitter.split_documents(docs)
             if not chunks:
                 logging.warning("No chunks created from document")
-                return False
+                return False, "No chunks created from document"
                 
             logging.info(f"Uploading {len(chunks)} chunks to Pinecone (namespace={self.session_id})")
             
@@ -82,13 +89,13 @@ class SessionVectorDB:
             )
             
             logging.info("Document uploaded successfully")
-            return True
+            return True, "Document uploaded successfully"
             
         except Exception as e:
             logging.error(f"Error adding documents for session {self.session_id}: {e}")
-            return False
+            return False, str(e)
 
-    def query(self, query: str, k: int = 4) -> Optional[List]:
+    def query(self, query: str, k: int = 5) -> Optional[List]:
         try:
             vectorstore = PineconeVectorStore(
                 index_name=INDEX_NAME,
@@ -105,7 +112,7 @@ class SessionVectorDB:
             return None
 
 # store document into pinecone
-def store_document(session_id: str, file_path: str, file_name: str) -> bool:
+def store_document(session_id: str, file_path: str, file_name: str) -> tuple[bool, str]:
     db = SessionVectorDB(session_id)
     return db.add_documents(file_path, file_name)
 
@@ -121,4 +128,8 @@ def clear_session_vectordb(session_id: str):
         index.delete(delete_all=True, namespace=session_id)
         logging.info(f"Cleared pinecone namespace: {session_id}")
     except Exception as e:
-        logging.error(f"Error clearing session {session_id}: {e}")
+        error_str = str(e)
+        if "(404)" in error_str or "Namespace not found" in error_str:
+            logging.info(f"namespace {session_id} not found")
+        else:
+            logging.error(f"Error clearing session {session_id}: {e}")

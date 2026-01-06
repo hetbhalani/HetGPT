@@ -9,6 +9,7 @@ import { AuthModal } from "./AuthModal";
 import { useAuth } from "../context/AuthContext";
 import { UserMenu } from "./UserMenu";
 import { TextShimmer } from '../components/text-shimmer';
+import { Toast, ToastType } from "./Toast";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 interface Message {
@@ -17,7 +18,7 @@ interface Message {
     content: string;
 }
 
-const BACKEND_URL = "https://hetgpt.onrender.com";
+const BACKEND_URL = "http://localhost:8000";
 
 // Helper to get auth headers for cross-domain requests
 const getAuthHeaders = (): HeadersInit => {
@@ -53,7 +54,23 @@ function ChatContent() {
     const [authMode, setAuthMode] = useState<"login" | "signup">("login");
     const [isInitialized, setIsInitialized] = useState(false);
 
+    // Toast state
+    const [toast, setToast] = useState<{ message: string; type: ToastType; isVisible: boolean }>({
+        message: "",
+        type: "info",
+        isVisible: false
+    });
+
+    const showToast = (message: string, type: ToastType = "info") => {
+        setToast({ message, type, isVisible: true });
+    };
+
+    const hideToast = () => {
+        setToast(prev => ({ ...prev, isVisible: false }));
+    };
+
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
+    const scrollContainerRef = useRef<HTMLDivElement | null>(null);
     const { user, isAuthenticated, checkAuth, logout, isLoading: isAuthLoading } = useAuth();
 
     const hasSentQuery = useRef(false);
@@ -159,11 +176,19 @@ function ChatContent() {
         }
     }, [isChatRoute, searchParams, isInitialized, pathname, router]);
 
+    // Scroll to bottom helper
+    const scrollToBottom = () => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo({
+                top: scrollContainerRef.current.scrollHeight,
+                behavior: "smooth"
+            });
+        }
+    };
+
     // Scroll to bottom effect
     useEffect(() => {
-        if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
-        }
+        scrollToBottom();
     }, [messages, isLoading, hasStarted]);
 
     const sendMessage = async (content: string, file?: File, preUploadedPath?: string) => {
@@ -180,6 +205,9 @@ function ChatContent() {
         };
         setMessages((prev) => [...prev, userMessage]);
         setIsLoading(true);
+
+        // Immediate scroll to bottom after adding user message
+        setTimeout(() => scrollToBottom(), 100);
 
         try {
             let filePath: string | null = preUploadedPath || null;
@@ -203,8 +231,16 @@ function ChatContent() {
                     console.log('File uploaded successfully:', filePath);
                 } else {
                     console.error('File upload failed');
-                    const errText = await uploadResponse.text();
-                    throw new Error(`File upload failed: ${uploadResponse.status} ${errText}`);
+                    // Try to parse JSON error first, then fallback to text
+                    let errorMessage = "File upload failed";
+                    try {
+                        const errData = await uploadResponse.json();
+                        errorMessage = errData.detail || errorMessage;
+                    } catch {
+                        const errText = await uploadResponse.text();
+                        if (errText) errorMessage = `${errorMessage}: ${errText}`;
+                    }
+                    throw new Error(errorMessage);
                 }
             }
 
@@ -248,7 +284,7 @@ function ChatContent() {
             const errorMessage: Message = {
                 id: (Date.now() + 1).toString(),
                 role: "assistant",
-                content: "Sorry, something went wrong. Please try again.",
+                content: error instanceof Error ? error.message : "Sorry, something went wrong. Please try again.",
             };
             setMessages((prev) => [...prev, errorMessage]);
         } finally {
@@ -278,12 +314,23 @@ function ChatContent() {
                         return;
                     } else {
                         console.error('File upload failed');
-                        alert("Failed to upload file. Please try again.");
+                        let errorMessage = "Failed to upload file. Please try again.";
+                        try {
+                            const errData = await uploadResponse.json();
+                            errorMessage = errData.detail || errorMessage;
+                        } catch { /* ignore parse error */ }
+
+                        // Custom short messages for better UI
+                        if (errorMessage.includes("exceeds page limit")) {
+                            showToast("File too large (Max 50 pages)", "warning");
+                        } else {
+                            showToast(errorMessage, "error");
+                        }
                         return;
                     }
                 } catch (e) {
                     console.error("Upload error", e);
-                    alert("Error uploading file.");
+                    showToast("Error uploading file.", "error");
                     return;
                 }
             }
@@ -414,7 +461,7 @@ function ChatContent() {
             )}
 
             <main className={`relative flex h-full w-full flex-col overflow-hidden transition-all duration-500 pt-0`} style={{ zIndex: 2 }}>
-                <div className="flex-1 overflow-y-auto scroll-smooth">
+                <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scroll-smooth" style={{ position: "relative" }}>
                     {!hasStarted ? (
                         <div className="flex min-h-screen w-full flex-col items-center justify-center gap-8 p-6 md:p-10 text-center animate-fadeIn">
                             {/* Pre-warm the chat route (compilation trigger) */}
@@ -463,7 +510,7 @@ function ChatContent() {
                                 <div
                                     className="backdrop-blur-xl rounded-3xl p-1 border border-violet-500/40"
                                 >
-                                    <InputArea onSend={handleSendMessage} />
+                                    <InputArea onSend={handleSendMessage} isLoading={isLoading} />
                                 </div>
                                 <p className="mt-3 text-xs text-slate-400">
                                     Start with a question or paste some text. You can attach a PDF to analyze it.
@@ -512,17 +559,9 @@ function ChatContent() {
                     )}
                 </div>
                 {hasStarted && (
-                    <div className="absolute bottom-0 left-0 right-0 flex justify-center pt-10 pb-4 animate-slideUp z-20">
-                        {/* Gradient Blur Background Layer - Bottom aligned */}
-                        <div
-                            className="absolute inset-0 w-full h-full bg-black/40 backdrop-blur-md pointer-events-none"
-                            style={{
-                                maskImage: 'linear-gradient(to top, black 0%, black 40%, transparent 100%)',
-                                WebkitMaskImage: 'linear-gradient(to top, black 0%, black 40%, transparent 100%)'
-                            }}
-                        />
-                        <div className="w-full max-w-3xl px-4 relative z-10">
-                            <InputArea onSend={handleSendMessage} />
+                    <div className="w-full flex justify-center pb-4 pt-2 relative" style={{ zIndex: 20 }}>
+                        <div className="w-full max-w-3xl px-4">
+                            <InputArea onSend={handleSendMessage} isLoading={isLoading} />
                         </div>
                     </div>
                 )}
@@ -537,6 +576,14 @@ function ChatContent() {
                 }}
                 onSuccess={handleAuthSuccess}
                 initialMode={authMode}
+            />
+
+            {/* Toast Notification */}
+            <Toast
+                message={toast.message}
+                type={toast.type}
+                isVisible={toast.isVisible}
+                onClose={hideToast}
             />
         </div>
     );

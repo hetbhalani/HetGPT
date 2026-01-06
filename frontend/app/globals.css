@@ -102,11 +102,12 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--muted-foreground);
   border-radius: 4px;
-  opacity: 0.5;
+  opacity: 0.8;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--sidebar-foreground);
+  opacity: 1;
 }
 
 /* Animations */
@@ -213,6 +214,7 @@ body {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }

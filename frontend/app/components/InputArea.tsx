@@ -6,9 +6,10 @@ import clsx from "clsx";
 
 interface InputAreaProps {
     onSend: (message: string, file?: File) => void;
+    isLoading?: boolean;
 }
 
-export function InputArea({ onSend }: InputAreaProps) {
+export function InputArea({ onSend, isLoading = false }: InputAreaProps) {
     const [input, setInput] = useState("");
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -23,7 +24,7 @@ export function InputArea({ onSend }: InputAreaProps) {
     }, [input]);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === "Enter" && !e.shiftKey) {
+        if (e.key === "Enter" && !e.shiftKey && !isLoading) {
             e.preventDefault();
             handleSend();
         }
@@ -49,7 +50,7 @@ export function InputArea({ onSend }: InputAreaProps) {
     };
 
     const handleSend = () => {
-        if (!input.trim() && !selectedFile) return;
+        if (isLoading || (!input.trim() && !selectedFile)) return;
         onSend(input, selectedFile || undefined);
         setInput("");
         setSelectedFile(null);
@@ -111,26 +112,34 @@ export function InputArea({ onSend }: InputAreaProps) {
             {/* Attachment Button (Left) */}
             <button
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute left-2 bottom-2.5 rounded-full p-2 text-violet-300 hover:bg-slate-800/80 hover:text-violet-200 transition-colors"
+                disabled={isLoading}
+                className={clsx(
+                    "absolute left-2 bottom-2.5 rounded-full p-2 transition-colors",
+                    isLoading
+                        ? "text-slate-600 cursor-not-allowed"
+                        : "text-violet-300 hover:bg-slate-800/80 hover:text-violet-200"
+                )}
             >
                 <Paperclip className="h-5 w-5" />
             </button>
 
             {/* Send Button (Right) */}
             <div className="absolute right-3 bottom-3 flex items-center gap-2">
-                {!input.trim() && !selectedFile && (
+                {!input.trim() && !selectedFile && !isLoading && (
                     <button className="rounded-full p-2 text-violet-300 hover:bg-slate-800/80 hover:text-violet-200 transition-colors">
                         <Mic className="h-5 w-5" />
                     </button>
                 )}
                 <button
                     onClick={handleSend}
-                    disabled={!input.trim() && !selectedFile}
+                    disabled={isLoading || (!input.trim() && !selectedFile)}
                     className={clsx(
                         "flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 border",
-                        (input.trim() || selectedFile)
-                            ? "bg-violet-500 text-white hover:bg-violet-400 hover:scale-105 border-violet-500"
-                            : "bg-slate-900 text-slate-600 border-slate-700 cursor-not-allowed opacity-70"
+                        isLoading
+                            ? "bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed opacity-70"
+                            : (input.trim() || selectedFile)
+                                ? "bg-violet-500 text-white hover:bg-violet-400 hover:scale-105 border-violet-500"
+                                : "bg-slate-900 text-slate-600 border-slate-700 cursor-not-allowed opacity-70"
                     )}
                 >
                     <ArrowUp className="h-5 w-5" />
