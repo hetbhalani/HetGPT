@@ -1,5 +1,6 @@
 <div align="center">
-<img src="https://via.placeholder.com/800x400/1a1a2e/ffffff?text=HetGPT+Screenshot" alt="HetGPT Banner" width="100%" />
+<img src="https://github.com/hetbhalani/HetGPT/blob/deployment/frontend/public/header_2.png" alt="HetGPT Banner" width="60%" />
+
 
 # 👽 HetGPT
 
