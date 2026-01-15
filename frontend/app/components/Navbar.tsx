@@ -43,17 +43,18 @@ export function Navbar({ onNewChat, isGenerating }: NavbarProps) {
                 />
 
                 {/* Navbar Content */}
-                <div className="relative flex items-center justify-between w-full px-6 py-5">
+                <div className="relative flex items-center justify-between w-full px-3 sm:px-6 py-3 sm:py-5">
                     {/* Left: Logo and New Chat */}
-                    <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 sm:gap-6">
+                        <div className="flex items-center gap-2 sm:gap-3">
                             <Image
                                 src="/alien.png"
                                 alt="HetGPT Logo"
                                 width={36}
                                 height={36}
+                                className="w-7 h-7 sm:w-9 sm:h-9"
                             />
-                            <span className="text-xl font-bold tracking-tight text-white drop-shadow-md">
+                            <span className="text-lg sm:text-xl font-mono font-bold tracking-tight text-white drop-shadow-md">
                                 HetGPT
                             </span>
                         </div>
@@ -62,13 +63,13 @@ export function Navbar({ onNewChat, isGenerating }: NavbarProps) {
                             <button
                                 onClick={onNewChat}
                                 disabled={isGenerating}
-                                className={`flex items-center gap-2 px-4 py-1.5 text-sm font-medium border rounded-lg transition-all duration-300 ${isGenerating
-                                        ? "text-slate-500 bg-white/5 border-white/5 cursor-not-allowed opacity-50"
-                                        : "cursor-pointer text-slate-200 bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20"
+                                className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 text-xs sm:text-sm font-medium border rounded-lg transition-all duration-300 ${isGenerating
+                                    ? "text-slate-500 bg-white/5 border-white/5 cursor-not-allowed opacity-50"
+                                    : "cursor-pointer text-slate-200 bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20"
                                     }`}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
-                                New Chat
+                                <span className="hidden sm:inline">New Chat</span>
                             </button>
                         )}
                     </div>
@@ -89,7 +90,7 @@ export function Navbar({ onNewChat, isGenerating }: NavbarProps) {
                             <>
                                 <button
                                     onClick={openLogin}
-                                    className="cursor-pointer px-6 py-2.5 text-sm font-medium text-white border border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10 rounded-full transition-all duration-300 backdrop-blur-sm shadow-sm"
+                                    className="cursor-pointer px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-white border border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10 rounded-full transition-all duration-300 backdrop-blur-sm shadow-sm"
                                 >
                                     Log in
                                 </button>

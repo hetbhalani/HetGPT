@@ -67,21 +67,21 @@ export function InputArea({ onSend, isLoading = false }: InputAreaProps) {
 
             {/* Selected File Display (Compact Card) */}
             {selectedFile && (
-                <div className="mx-4 mt-4 flex w-fit items-center gap-3 rounded-xl border border-white/10 bg-slate-800/60 p-3 pr-4 backdrop-blur-md transition-all hover:bg-slate-800/80 group">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500/20 text-red-400 ring-1 ring-red-500/30 group-hover:bg-red-500/30 transition-colors">
-                        <span className="text-[10px] font-bold">PDF</span>
+                <div className="mx-3 sm:mx-4 mt-3 sm:mt-4 flex w-fit items-center gap-2 sm:gap-3 rounded-lg sm:rounded-xl border border-white/10 bg-slate-800/60 p-2 sm:p-3 pr-3 sm:pr-4 backdrop-blur-md transition-all hover:bg-slate-800/80 group">
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-md sm:rounded-lg bg-red-500/20 text-red-400 ring-1 ring-red-500/30 group-hover:bg-red-500/30 transition-colors">
+                        <span className="text-[9px] sm:text-[10px] font-bold">PDF</span>
                     </div>
                     <div className="flex flex-col">
-                        <span className="max-w-[200px] truncate text-sm font-medium text-slate-200">
+                        <span className="max-w-[120px] sm:max-w-[200px] truncate text-xs sm:text-sm font-medium text-slate-200">
                             {selectedFile.name}
                         </span>
-                        <span className="text-xs text-slate-400">
+                        <span className="text-[10px] sm:text-xs text-slate-400">
                             {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                         </span>
                     </div>
                     <button
                         onClick={handleRemoveFile}
-                        className="cursor-pointer ml-2 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-red-500/20 hover:text-red-400"
+                        className="cursor-pointer ml-1 sm:ml-2 rounded-full p-1 sm:p-1.5 text-slate-400 transition-colors hover:bg-red-500/20 hover:text-red-400"
                     >
                         <span className="sr-only">Remove file</span>
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
@@ -96,7 +96,7 @@ export function InputArea({ onSend, isLoading = false }: InputAreaProps) {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Chat with HetGPT..."
-                className="max-h-[200px] min-h-[52px] w-full resize-none bg-transparent px-12 py-4 text-base text-slate-100 focus:outline-none scrollbar-hide placeholder:text-slate-500"
+                className="max-h-[200px] min-h-[48px] sm:min-h-[52px] w-full resize-none bg-transparent px-10 sm:px-12 py-3 sm:py-4 text-sm sm:text-base text-slate-100 focus:outline-none scrollbar-hide placeholder:text-slate-500"
                 rows={1}
             />
 
@@ -114,19 +114,19 @@ export function InputArea({ onSend, isLoading = false }: InputAreaProps) {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading}
                 className={clsx(
-                    "absolute left-2 bottom-2.5 rounded-full p-2 transition-colors",
+                    "absolute left-2 bottom-2 sm:bottom-2.5 rounded-full p-2 sm:p-2.5 transition-colors min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 flex items-center justify-center",
                     isLoading
                         ? "text-slate-600 cursor-not-allowed"
                         : "text-violet-300 hover:bg-slate-800/80 hover:text-violet-200"
                 )}
             >
-                <Paperclip className="h-5 w-5" />
+                <Paperclip className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
 
             {/* Send Button (Right) */}
-            <div className="absolute right-3 bottom-3 flex items-center gap-2">
+            <div className="absolute right-2 sm:right-3 bottom-2 sm:bottom-3 flex items-center gap-1 sm:gap-2">
                 {!input.trim() && !selectedFile && !isLoading && (
-                    <button className="rounded-full p-2 text-violet-300 hover:bg-slate-800/80 hover:text-violet-200 transition-colors">
+                    <button className="rounded-full p-2 text-violet-300 hover:bg-slate-800/80 hover:text-violet-200 transition-colors hidden sm:flex">
                         <Mic className="h-5 w-5" />
                     </button>
                 )}
@@ -134,7 +134,7 @@ export function InputArea({ onSend, isLoading = false }: InputAreaProps) {
                     onClick={handleSend}
                     disabled={isLoading || (!input.trim() && !selectedFile)}
                     className={clsx(
-                        "flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 border",
+                        "flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-full transition-all duration-200 border",
                         isLoading
                             ? "bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed opacity-70"
                             : (input.trim() || selectedFile)
@@ -142,7 +142,7 @@ export function InputArea({ onSend, isLoading = false }: InputAreaProps) {
                                 : "bg-slate-900 text-slate-600 border-slate-700 cursor-not-allowed opacity-70"
                     )}
                 >
-                    <ArrowUp className="h-5 w-5" />
+                    <ArrowUp className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
             </div>
         </div>

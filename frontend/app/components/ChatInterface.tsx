@@ -368,15 +368,37 @@ function ChatContent() {
 
     return (
         <div className="flex h-screen w-full overflow-hidden bg-black text-slate-100 relative">
-            {/* Persistent Video Background */}
-            <div className="fixed inset-0 z-0">
+            {/* Mobile/Tablet Static Image Background */}
+            <div className="fixed inset-0 z-0 lg:hidden">
+                <Image
+                    src="/mobile_static.png"
+                    alt="Background"
+                    fill
+                    className="object-cover"
+                    priority
+                />
+                {/* Dark blur overlay for chat page on mobile */}
+                {hasStarted && <div className="chat-mobile-overlay" />}
+            </div>
+
+            {/* Persistent Video Background (Desktop only) */}
+            <div className="fixed inset-0 z-0 hidden lg:block">
                 <video
                     autoPlay
                     loop
                     muted
                     playsInline
-                    className="absolute inset-0 w-full h-full object-cover"
-                    style={{ minWidth: '100%', minHeight: '100%' }}
+                    disablePictureInPicture
+                    disableRemotePlayback
+                    controls={false}
+                    className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                    style={{
+                        minWidth: '100%',
+                        minHeight: '100%',
+                        objectFit: 'cover'
+                    }}
+                    // @ts-ignore - webkit specific attribute
+                    webkit-playsinline="true"
                 >
                     <source src="/1222.mp4" type="video/mp4" />
                 </video>
@@ -386,7 +408,7 @@ function ChatContent() {
                     style={{
                         background: hasStarted
                             ? 'rgba(3, 7, 18, 0.86)'
-                            : 'linear-gradient(to bottom, rgba(15,23,42,0.25) 0%, rgba(3,7,18,0.6) 55%, rgba(3,7,18,0.8) 100%)',
+                            : 'linear-gradient(to bottom, rgba(24, 15, 42, 0.25) 0%, rgba(30, 19, 50, 0.6) 55%, rgba(37, 23, 62, 0.8) 100%)',
                         backdropFilter: 'blur(18px)',
                     }}
                 />
@@ -396,112 +418,115 @@ function ChatContent() {
             {hasStarted && <Navbar onNewChat={handleNewChat} isGenerating={isLoading} />}
 
             {/* Top Header with Logo and User Avatar - Only for Welcome Screen */}
-            {!hasStarted && (
-                <header
-                    className="fixed top-0 left-0 right-0 z-[10] flex items-center justify-between px-6 py-4"
-                    style={{
-                        background: 'transparent',
-                        backdropFilter: 'blur(8px)',
-                        borderBottom: '1px solid transparent'
-                    }}
-                >
-                    {/* Logo and App Name */}
-                    <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-3">
-                            <Image
-                                src="/alien.png"
-                                alt="HetGPT Logo"
-                                width={36}
-                                height={36}
-                                className="object-contain drop-shadow-lg"
-                            />
-                            <span className="text-xl font-semibold tracking-tight text-slate-100 drop-shadow-sm">
-                                HetGPT
-                            </span>
+            {
+                !hasStarted && (
+                    <header
+                        className="fixed top-0 left-0 right-0 z-[10] flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4"
+                        style={{
+                            background: 'transparent',
+                            backdropFilter: 'blur(8px)',
+                            borderBottom: '1px solid transparent'
+                        }}
+                    >
+                        {/* Logo and App Name */}
+                        <div className="flex items-center gap-3 sm:gap-6">
+                            <div className="flex items-center gap-2 sm:gap-3">
+                                <Image
+                                    src="/alien.png"
+                                    alt="HetGPT Logo"
+                                    width={36}
+                                    height={36}
+                                    className="object-contain drop-shadow-lg w-7 h-7 sm:w-9 sm:h-9"
+                                />
+                                <span className="text-lg sm:text-xl font-mono font-semibold tracking-tight text-slate-100 drop-shadow-sm">
+                                    HetGPT
+                                </span>
+                            </div>
+
+                            {messages.length > 0 && (
+                                <button
+                                    onClick={handleNewChat}
+                                    disabled={isLoading}
+                                    className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 text-xs sm:text-sm font-medium border rounded-lg transition-all duration-300 ${isLoading
+                                        ? "text-slate-500 bg-white/5 border-white/5 cursor-not-allowed opacity-50"
+                                        : "cursor-pointer text-slate-200 bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20"
+                                        }`}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+                                    <span className="hidden sm:inline">New Chat</span>
+                                </button>
+                            )}
                         </div>
 
-                        {messages.length > 0 && (
-                            <button
-                                onClick={handleNewChat}
-                                disabled={isLoading}
-                                className={`flex items-center gap-2 px-4 py-1.5 text-sm font-medium border rounded-lg transition-all duration-300 ${isLoading
-                                    ? "text-slate-500 bg-white/5 border-white/5 cursor-not-allowed opacity-50"
-                                    : "cursor-pointer text-slate-200 bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20"
-                                    }`}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
-                                New Chat
-                            </button>
-                        )}
-                    </div>
-
-                    {/* User Avatar or Auth Buttons */}
-                    <div className="flex items-center gap-3">
-                        {isAuthLoading ? (
-                            <div className="flex items-center justify-center w-20 h-10">
-                                <svg className="animate-spin h-5 w-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                            </div>
-                        ) : isAuthenticated && user ? (
-                            <UserMenu user={user} logout={logout} />
-                        ) : (
-                            <>
-                                <button
-                                    onClick={() => { setAuthMode("login"); setShowAuthModal(true); }}
-                                    className="cursor-pointer px-6 py-2.5 text-sm font-medium text-white border border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10 rounded-full transition-all duration-300 backdrop-blur-sm shadow-sm"
-                                >
-                                    Log in
-                                </button>
-                            </>
-                        )}
-                    </div>
-                </header>
-            )}
+                        {/* User Avatar or Auth Buttons */}
+                        <div className="flex items-center gap-3">
+                            {isAuthLoading ? (
+                                <div className="flex items-center justify-center w-20 h-10">
+                                    <svg className="animate-spin h-5 w-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                </div>
+                            ) : isAuthenticated && user ? (
+                                <UserMenu user={user} logout={logout} />
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => { setAuthMode("login"); setShowAuthModal(true); }}
+                                        className="cursor-pointer px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-white border border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10 rounded-full transition-all duration-300 backdrop-blur-sm shadow-sm"
+                                    >
+                                        Log in
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </header>
+                )
+            }
 
             <main className={`relative flex h-full w-full flex-col overflow-hidden transition-all duration-500 pt-0`} style={{ zIndex: 2 }}>
                 <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scroll-smooth" style={{ position: "relative" }}>
                     {!hasStarted ? (
-                        <div className="flex min-h-screen w-full flex-col items-center justify-center gap-8 p-6 md:p-10 text-center animate-fadeIn">
+                        <div className="welcome-container flex min-h-screen w-full flex-col items-center justify-start lg:justify-center gap-4 sm:gap-6 md:gap-8 pt-32 pb-10 sm:py-10 px-4 sm:px-6 md:p-10 text-center animate-fadeIn scroll-mt-20">
                             {/* Pre-warm the chat route (compilation trigger) */}
                             <div style={{ display: 'none' }} aria-hidden="true">
                                 <iframe src="/chat" tabIndex={-1} title="Preloader" />
                             </div>
 
-                            <h1 className="text-4xl md:text-6xl font-mono font-semibold tracking-tight text-slate-50 drop-shadow-[0_18px_45px_rgba(15,23,42,0.9)]">
-                                Welcome to{" "}
+                            <h1 className="welcome-heading text-2xl sm:text-4xl md:text-6xl font-mono font-semibold tracking-tight text-slate-50 drop-shadow-[0_18px_45px_rgba(15,23,42,0.9)]">
+                                <span>Welcome to</span><span className="welcome-break"> </span>
                                 <span
                                     className="text-transparent bg-clip-text"
                                     style={{
-                                        backgroundImage: "linear-gradient(to right, #5e30a3ff, #5e4ab7ff, #7A85C1, #ffffffff, #7A85C1, #5e4ab7ff, #5e30a3ff)", backgroundSize: "200% auto",
+                                        backgroundImage: "linear-gradient(to right, #ffffff, #906effff, #ffffff)",
+                                        backgroundSize: "200% auto",
                                         animation: "gradientMove 5s linear infinite",
                                         WebkitBackgroundClip: "text",
                                         WebkitTextFillColor: "transparent",
-                                        filter: "drop-shadow(0 8px 32px rgba(87, 92, 101, 0.9))"
+                                        filter: "drop-shadow(0 0 8px rgba(165, 180, 252, 0.3))"
                                     }}
                                 >
                                     HetGPT
                                 </span>
                             </h1>
-                            <p className="text-base md:text-lg text-slate-300 max-w-xl font-light tracking-wide">
+                            <p className="text-sm sm:text-base md:text-lg text-slate-300 max-w-xl font-light tracking-wide px-2">
                                 Chat with an AI that can understand your documents, answer questions, explain code,
                                 and help you think through any idea.
                             </p>
 
                             {/* Feature cards */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl w-full mt-2 md:mt-4">
-                                <div className="rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-white/10 shadow-[0_18px_40px_rgba(0,0,0,0.7)] px-5 py-4 text-left">
-                                    <p className="text-xs font-semibold text-violet-300 uppercase tracking-[0.2em] mb-1">Understand</p>
-                                    <p className="text-sm text-slate-100">Upload PDFs and get summaries, question answers, and more.</p>
+                            <div className="feature-cards-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 max-w-4xl w-full mt-2 md:mt-4">
+                                <div className="rounded-xl sm:rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-white/10 shadow-[0_18px_40px_rgba(0,0,0,0.7)] px-3 sm:px-5 py-3 sm:py-4 text-left">
+                                    <p className="text-[10px] sm:text-xs font-semibold text-violet-300 uppercase tracking-[0.15em] sm:tracking-[0.2em] mb-1">PDF Analysis</p>
+                                    <p className="text-xs sm:text-sm text-slate-100">Upload PDFs and ask questions, get summaries, or extract key insights.</p>
                                 </div>
-                                <div className="rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-white/10 shadow-[0_18px_40px_rgba(0,0,0,0.7)] px-5 py-4 text-left">
-                                    <p className="text-xs font-semibold text-violet-300 uppercase tracking-[0.2em] mb-1">Create</p>
-                                    <p className="text-sm text-slate-100">Draft emails, blog posts, or reports from simple ideas.</p>
+                                <div className="rounded-xl sm:rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-white/10 shadow-[0_18px_40px_rgba(0,0,0,0.7)] px-3 sm:px-5 py-3 sm:py-4 text-left">
+                                    <p className="text-[10px] sm:text-xs font-semibold text-violet-300 uppercase tracking-[0.15em] sm:tracking-[0.2em] mb-1">Live Data</p>
+                                    <p className="text-xs sm:text-sm text-slate-100">Access real-time web data for news, weather, stocks, and more.</p>
                                 </div>
-                                <div className="rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-white/10 shadow-[0_18px_40px_rgba(0,0,0,0.7)] px-5 py-4 text-left">
-                                    <p className="text-xs font-semibold text-violet-300 uppercase tracking-[0.2em] mb-1">Explain</p>
-                                    <p className="text-sm text-slate-100">Break down complex topics or summarize them step by step.</p>
+                                <div className="rounded-xl sm:rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-white/10 shadow-[0_18px_40px_rgba(0,0,0,0.7)] px-3 sm:px-5 py-3 sm:py-4 text-left sm:col-span-2 md:col-span-1">
+                                    <p className="text-[10px] sm:text-xs font-semibold text-violet-300 uppercase tracking-[0.15em] sm:tracking-[0.2em] mb-1">CS & Conversation</p>
+                                    <p className="text-xs sm:text-sm text-slate-100">Solve coding problems, write code and chat casually with AI.</p>
                                 </div>
                             </div>
 
@@ -512,14 +537,11 @@ function ChatContent() {
                                 >
                                     <InputArea onSend={handleSendMessage} isLoading={isLoading} />
                                 </div>
-                                <p className="mt-3 text-xs text-slate-400">
-                                    Start with a question or paste some text. You can attach a PDF to analyze it.
-                                </p>
                             </div>
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center pb-32 pt-24 px-3 md:px-6 animate-slideUp">
-                            <div className="w-full max-w-3xl">
+                        <div className="chat-messages-container flex flex-col items-center pb-10 pt-16 sm:pt-20 md:pt-24 px-2 sm:px-3 md:px-6 animate-slideUp">
+                            <div className="w-full max-w-4xl">
                                 {messages.map((msg) => (
                                     <MessageBubble
                                         key={msg.id}
@@ -529,17 +551,17 @@ function ChatContent() {
                                     />
                                 ))}
                                 {isLoading && (
-                                    <div className="flex w-full px-4 md:px-6 py-4 animate-fadeIn justify-start">
-                                        <div className="flex items-start gap-3 md:gap-4 max-w-[85%]">
+                                    <div className="flex w-full px-2 sm:px-4 md:px-6 py-3 sm:py-4 animate-fadeIn justify-start">
+                                        <div className="flex items-start gap-2 sm:gap-3 md:gap-4 max-w-[90%] sm:max-w-[85%]">
                                             {/* Avatar for Loader */}
                                             <div className="flex shrink-0 flex-col relative items-end">
-                                                <div className="flex h-8 w-8 items-center justify-center rounded-sm overflow-hidden bg-transparent">
+                                                <div className="flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-sm overflow-hidden bg-transparent">
                                                     <Image
                                                         src="/alien.png"
                                                         alt="HetGPT"
                                                         width={32}
                                                         height={32}
-                                                        className="object-contain"
+                                                        className="object-contain w-6 h-6 sm:w-8 sm:h-8"
                                                     />
                                                 </div>
                                             </div>
@@ -559,9 +581,12 @@ function ChatContent() {
                     )}
                 </div>
                 {hasStarted && (
-                    <div className="w-full flex justify-center pb-4 pt-2 relative" style={{ zIndex: 20 }}>
-                        <div className="w-full max-w-3xl px-4">
+                    <div className="w-full flex justify-center pb-1 relative" style={{ zIndex: 20 }}>
+                        <div className="w-full max-w-4xl px-2 sm:px-4 flex flex-col items-center gap-1">
                             <InputArea onSend={handleSendMessage} isLoading={isLoading} />
+                            <p className="text-[9px] sm:text-[10px] md:text-xs text-slate-400 font-light tracking-wide text-center px-2">
+                                HetGPT can make mistakes. Important info should be verified.
+                            </p>
                         </div>
                     </div>
                 )}
@@ -585,7 +610,7 @@ function ChatContent() {
                 isVisible={toast.isVisible}
                 onClose={hideToast}
             />
-        </div>
+        </div >
     );
 }
 
