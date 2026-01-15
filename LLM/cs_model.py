@@ -24,6 +24,7 @@ def cs_model_call(query: str, history: list = None):
         # Manage the history
         if history:
             messages = list(history)
+            messages.append(SystemMessage(content="You are a coding assistant. When providing code, YOU MUST provide a clear explanation of how it works. Do not just give the code."))
         else:
             messages = [
                 SystemMessage(content="You are a helpful coding assistant. Answer programming questions concisely.")

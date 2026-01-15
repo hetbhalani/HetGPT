@@ -72,7 +72,7 @@ def get_session(session_id: str):
     if session_id not in sessions:
         sessions[session_id] = {'after_docs': False}
         sessions[session_id]['messages'] = [
-            SystemMessage(content="You are a helpful assistant. Answer questions shortly.")
+            SystemMessage(content="You are a helpful assistant. You serve the user with accurate information and explanations.")
         ]
     return sessions[session_id]
 
