@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useAuth } from "../context/AuthContext";
 import { AuthModal } from "./AuthModal";
 import { UserMenu } from "./UserMenu";
@@ -46,7 +47,7 @@ export function Navbar({ onNewChat, isGenerating }: NavbarProps) {
                 <div className="relative flex items-center justify-between w-full px-3 sm:px-6 py-3 sm:py-5">
                     {/* Left: Logo and New Chat */}
                     <div className="flex items-center gap-3 sm:gap-6">
-                        <div className="flex items-center gap-2 sm:gap-3">
+                        <Link href="/" className="flex items-center gap-2 sm:gap-3 cursor-pointer hover:opacity-80 transition-opacity">
                             <Image
                                 src="/alien.png"
                                 alt="HetGPT Logo"
@@ -57,7 +58,7 @@ export function Navbar({ onNewChat, isGenerating }: NavbarProps) {
                             <span className="text-lg sm:text-xl font-mono font-bold tracking-tight text-white drop-shadow-md">
                                 HetGPT
                             </span>
-                        </div>
+                        </Link>
 
                         {onNewChat && (
                             <button
