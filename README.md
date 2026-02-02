@@ -36,7 +36,7 @@
 
 ### 🧠 Intelligent Multi-Model Routing
 - **Query Router**: Analyzes user intent and directs queries to the optimal model
-- **CS Specialist Model**: Fine-tuned Llama 3.1 8B using QLoRA on Computer Science datasets
+- **CS Specialist Model**: Fine-tuned Qwen 3 8B using QLoRA on Computer Science datasets
 - **General Model**: Handles conversational queries and ambiguous requests
 
 ### 🔧 Real-Time Tool Integration
@@ -249,12 +249,31 @@ OLLAMA_BASE_URL=http://localhost:11434
 ### Custom CS Model
 
 The specialist model is fine-tuned using:
-- **Base Model**: Llama 3.1 8B
+- **Base Model**: Qwen 3 8B
 - **Method**: QLoRA (Quantized Low-Rank Adaptation)
 - **Dataset**: Curated Computer Science Q&A pairs
 - **Focus Areas**: Algorithms, Data Structures, System Design, Code Generation
 
+#### Training Metrics
+| Metric | Value |
+|--------|-------|
+| Training Loss | 0.098 |
+| Validation Loss | 0.555 |
+| Token Accuracy | 82.6% |
+| Epochs | 2.0 |
+| Total Tokens | 7.5M+ |
+
 ---
+
+## 🗺️ Roadmap
+
+
+- [x] **Device-Based Rate Limiting** — 5 prompts per device per day with visual indicator
+- [x] Long-term memory with conversation summarization
+- [ ] **Voice Conversation** — Real-time voice input/output using speech recognition
+- [ ] **Agentic Memory** — Enhanced memory with better context retrieval and reasoning
+- [ ] **Multi-turn Tool Chains** — Execute complex tasks with sequential tool calls
+
 
 ## 🛠 Tech Stack
 

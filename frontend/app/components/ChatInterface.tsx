@@ -245,6 +245,9 @@ function ChatContent() {
         setMessages((prev) => [...prev, userMessage]);
         setIsLoading(true);
 
+        // Optimistically decrement remaining prompts for instant UI feedback
+        setRemainingPrompts(prev => Math.max(0, prev - 1));
+
         // Immediate scroll to bottom after adding user message
         setTimeout(() => scrollToBottom(), 100);
 
