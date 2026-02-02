@@ -265,14 +265,14 @@ The specialist model is fine-tuned using:
 
 ---
 
-## 🗺️ Roadmap
+## 🗺️ Future Enhancements
 
 
-- [x] **Device-Based Rate Limiting** — 5 prompts per device per day with visual indicator
-- [x] Long-term memory with conversation summarization
-- [ ] **Voice Conversation** — Real-time voice input/output using speech recognition
-- [ ] **Agentic Memory** — Enhanced memory with better context retrieval and reasoning
-- [ ] **Multi-turn Tool Chains** — Execute complex tasks with sequential tool calls
+- ✅ **Device-Based Rate Limiting**: 5 prompts per device per day with visual indicator
+- ✅ **Long-term Memory**: Conversation summarization
+- ⬜ **Voice Conversation**: Real-time voice input/output using speech recognition
+- ⬜ **Agentic Memory**: Enhanced memory with better context retrieval and reasoning
+- ⬜ **Multi-turn Tool Chains**: Execute complex tasks with sequential tool calls
 
 
 ## 🛠 Tech Stack
