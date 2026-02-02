@@ -14,7 +14,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from query_router.route import route
 
-from api import model, schema, auth
+from api import model, schema, auth, rate_limit
 from api.database import engine, get_db, SessionLocal
 from RAG.long_term_RAG import LtmRag
 from LLM.summary_model import summary_model_call
@@ -186,11 +186,34 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "User deleted successfully"}
 
+# Check rate limit endpoint
+@app.post('/rate-limit/check', response_model=schema.RateLimitResponse)
+def check_rate_limit_endpoint(req: schema.RateLimitCheck, db: Session = Depends(get_db)):
+    remaining, is_limited, resets_at = rate_limit.check_rate_limit(db, req.device_id)
+    return {
+        "remaining_prompts": remaining,
+        "is_rate_limited": is_limited,
+        "resets_at": resets_at
+    }
+
 # chat with LLM
 @app.post('/chat')
 def chat(req : schema.Chat, request: Request, db: Session = Depends(get_db)):
     if req.query:
         try:
+            # Check rate limit if device_id is provided
+            if req.device_id:
+                remaining, is_limited, resets_at = rate_limit.check_rate_limit(db, req.device_id)
+                if is_limited:
+                    raise HTTPException(
+                        status_code=429, 
+                        detail={
+                            "message": "Daily prompt limit reached. Try again tomorrow!",
+                            "remaining_prompts": 0,
+                            "resets_at": resets_at
+                        }
+                    )
+            
             # retrive long term memory of auth user
             user = get_current_user_cookie(request, db)
             ltm_context = user.context if user else ""
@@ -201,8 +224,14 @@ def chat(req : schema.Chat, request: Request, db: Session = Depends(get_db)):
                 ltm=ltm_context
             )
             
+            # Decrement rate limit after successful response
+            if req.device_id:
+                rate_limit.decrement_rate_limit(db, req.device_id)
+            
             return {"response": res}
         
+        except HTTPException:
+            raise
         except Exception as e:
             logging.error(f"error: {e}")
             raise HTTPException(500, "Something went wrong")

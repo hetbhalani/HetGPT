@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "HetGPT",
-  description: "An AI platform just like Gemini and ChatGPT",
+  description: "An multi-model AI platform",
   icons: {
     icon: "/alien.png",
     shortcut: "/alien.png",

@@ -11,6 +11,7 @@ import { UserMenu } from "./UserMenu";
 import { TextShimmer } from '../components/text-shimmer';
 import { Toast, ToastType } from "./Toast";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { getDeviceId } from "../../lib/deviceId";
 
 interface Message {
     id: string;
@@ -18,7 +19,7 @@ interface Message {
     content: string;
 }
 
-const BACKEND_URL = "https://hetgpt.onrender.com";
+const BACKEND_URL = "http://localhost:8000";
 
 // Helper to get auth headers for cross-domain requests
 const getAuthHeaders = (): HeadersInit => {
@@ -54,6 +55,11 @@ function ChatContent() {
     const [authMode, setAuthMode] = useState<"login" | "signup">("login");
     const [isInitialized, setIsInitialized] = useState(false);
 
+    // Rate limiting state
+    const [remainingPrompts, setRemainingPrompts] = useState(5);
+    const [isRateLimited, setIsRateLimited] = useState(false);
+    const [deviceId, setDeviceId] = useState<string>('');
+
     // Toast state
     const [toast, setToast] = useState<{ message: string; type: ToastType; isVisible: boolean }>({
         message: "",
@@ -72,6 +78,39 @@ function ChatContent() {
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
     const { user, isAuthenticated, checkAuth, logout, isLoading: isAuthLoading } = useAuth();
+
+    // Initialize device ID and check rate limit on mount
+    useEffect(() => {
+        const id = getDeviceId();
+        console.log('[RATE_LIMIT] Device ID:', id);
+        setDeviceId(id);
+        if (id) {
+            checkRateLimit(id);
+        }
+    }, []);
+
+    // Function to check rate limit status
+    const checkRateLimit = async (devId: string) => {
+        console.log('[RATE_LIMIT] Checking rate limit for device:', devId);
+        try {
+            const response = await fetch(`${BACKEND_URL}/rate-limit/check`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device_id: devId })
+            });
+            console.log('[RATE_LIMIT] Response status:', response.status);
+            if (response.ok) {
+                const data = await response.json();
+                console.log('[RATE_LIMIT] Response data:', data);
+                setRemainingPrompts(data.remaining_prompts);
+                setIsRateLimited(data.is_rate_limited);
+            } else {
+                console.error('[RATE_LIMIT] Response not ok:', await response.text());
+            }
+        } catch (error) {
+            console.error('[RATE_LIMIT] Failed to check rate limit:', error);
+        }
+    };
 
     const hasSentQuery = useRef(false);
 
@@ -251,12 +290,19 @@ function ChatContent() {
                 body: JSON.stringify({
                     query: content,
                     session_id: sessionId,
-                    path: filePath
+                    path: filePath,
+                    device_id: deviceId
                 })
             });
 
             if (!response.ok) {
                 const errData = await response.json();
+                // Handle rate limit error
+                if (response.status === 429) {
+                    setRemainingPrompts(0);
+                    setIsRateLimited(true);
+                    throw new Error(errData.detail?.message || "Daily prompt limit reached. Try again tomorrow!");
+                }
                 throw new Error(errData.detail || "API Error");
             }
 
@@ -279,6 +325,11 @@ function ChatContent() {
                 content: aiContent,
             };
             setMessages((prev) => [...prev, aiMessage]);
+
+            // Update rate limit after successful response
+            if (deviceId) {
+                checkRateLimit(deviceId);
+            }
         } catch (error) {
             console.error('Error:', error);
             const errorMessage: Message = {
@@ -293,6 +344,12 @@ function ChatContent() {
     };
 
     const executeSend = async (content: string, file?: File) => {
+        // Check rate limit before sending
+        if (isRateLimited) {
+            showToast("Daily prompt limit reached. Try again tomorrow!", "warning");
+            return;
+        }
+
         if (!isChatRoute) {
             if (file) {
                 try {
@@ -415,7 +472,7 @@ function ChatContent() {
             </div>
 
             {/* Navbar pinned at the top once the chat starts */}
-            {hasStarted && <Navbar onNewChat={handleNewChat} isGenerating={isLoading} />}
+            {hasStarted && <Navbar onNewChat={handleNewChat} isGenerating={isLoading} remainingPrompts={remainingPrompts} />}
 
             {/* Top Header with Logo and User Avatar - Only for Welcome Screen */}
             {
@@ -535,7 +592,7 @@ function ChatContent() {
                                 <div
                                     className="backdrop-blur-xl rounded-3xl p-1 border border-violet-500/40"
                                 >
-                                    <InputArea onSend={handleSendMessage} isLoading={isLoading} />
+                                    <InputArea onSend={handleSendMessage} isLoading={isLoading} remainingPrompts={remainingPrompts} isRateLimited={isRateLimited} />
                                 </div>
                             </div>
                         </div>
@@ -583,7 +640,7 @@ function ChatContent() {
                 {hasStarted && (
                     <div className="w-full flex justify-center pb-1 relative" style={{ zIndex: 20 }}>
                         <div className="w-full max-w-4xl px-2 sm:px-4 flex flex-col items-center gap-1">
-                            <InputArea onSend={handleSendMessage} isLoading={isLoading} />
+                            <InputArea onSend={handleSendMessage} isLoading={isLoading} remainingPrompts={remainingPrompts} isRateLimited={isRateLimited} />
                             <p className="text-[9px] sm:text-[10px] md:text-xs text-slate-400 font-light tracking-wide text-center px-2">
                                 HetGPT can make mistakes. Important info should be verified.
                             </p>
