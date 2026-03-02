@@ -19,7 +19,7 @@ interface Message {
     content: string;
 }
 
-const BACKEND_URL = "https://hetgpt.onrender.com";
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 // Helper to get auth headers for cross-domain requests
 const getAuthHeaders = (): HeadersInit => {
@@ -59,6 +59,7 @@ function ChatContent() {
     const [remainingPrompts, setRemainingPrompts] = useState(5);
     const [isRateLimited, setIsRateLimited] = useState(false);
     const [deviceId, setDeviceId] = useState<string>('');
+    const deviceIdRef = useRef<string>('');
 
     // Toast state
     const [toast, setToast] = useState<{ message: string; type: ToastType; isVisible: boolean }>({
@@ -84,8 +85,15 @@ function ChatContent() {
         const id = getDeviceId();
         console.log('[RATE_LIMIT] Device ID:', id);
         setDeviceId(id);
+        deviceIdRef.current = id;
         if (id) {
-            checkRateLimit(id);
+            // Skip initial check if there's a pending query param — sendMessage
+            // will call checkRateLimit after success, avoiding a race condition
+            // where this early check overwrites the post-decrement value.
+            const hasPendingQuery = new URLSearchParams(window.location.search).get('q');
+            if (!hasPendingQuery) {
+                checkRateLimit(id);
+            }
         }
     }, []);
 
@@ -294,7 +302,7 @@ function ChatContent() {
                     query: content,
                     session_id: sessionId,
                     path: filePath,
-                    device_id: deviceId
+                    device_id: deviceIdRef.current
                 })
             });
 
@@ -330,11 +338,18 @@ function ChatContent() {
             setMessages((prev) => [...prev, aiMessage]);
 
             // Update rate limit after successful response
-            if (deviceId) {
-                checkRateLimit(deviceId);
+            if (deviceIdRef.current) {
+                checkRateLimit(deviceIdRef.current);
             }
         } catch (error) {
             console.error('Error:', error);
+
+            // Revert optimistic decrement on non-rate-limit errors
+            // (rate limit errors set their own value via setRemainingPrompts(0))
+            if (!(error instanceof Error && error.message.includes('Daily prompt limit'))) {
+                setRemainingPrompts(prev => Math.min(5, prev + 1));
+            }
+
             const errorMessage: Message = {
                 id: (Date.now() + 1).toString(),
                 role: "assistant",
@@ -419,6 +434,7 @@ function ChatContent() {
 
     const handleAuthSuccess = () => {
         setShowAuthModal(false);
+        showToast("Logged in successfully!", "success");
         if (pendingMessage) {
             // Directly execute send since we just successfully logged in
             executeSend(pendingMessage.content, pendingMessage.file);
