@@ -34,6 +34,10 @@ app.add_middleware(
     allow_headers=["*", "Authorization", "Content-Type"],
 )
 
+@app.get('/health')
+def health():
+    return {"status": "ok"}
+
 #cookie setting
 COOKIE_NAME = "access_token"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 7
