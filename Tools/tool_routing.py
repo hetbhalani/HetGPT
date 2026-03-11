@@ -2,25 +2,20 @@ from .tools import Tools
 from langchain_core.messages import HumanMessage, ToolMessage, AIMessage, SystemMessage
 from langchain_ollama import ChatOllama
 from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
+from langchain_groq import ChatGroq
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-model = HuggingFaceEndpoint(
-    repo_id='moonshotai/Kimi-K2-Thinking',
-    task='text-generation'
-)
-
-llm = ChatHuggingFace(llm=model)
-
-# GENERAL_MODEL = os.getenv("GENERAL_MODEL")
-
-# llm = ChatOllama(
-#     model="qwen2.5:7b-instruct",
-#     base_url=GENERAL_MODEL,
-#     temperature=0,
+# model = HuggingFaceEndpoint(
+#     repo_id='moonshotai/Kimi-K2-Thinking',
+#     task='text-generation'
 # )
+
+# llm = ChatHuggingFace(llm=model)
+llm = ChatGroq(model="moonshotai/kimi-k2-instruct-0905")
+
     
 tools = [Tools.what_the_duck, Tools.wiki, Tools.weather, Tools.news]
 llm_w_tools = llm.bind_tools(tools)
