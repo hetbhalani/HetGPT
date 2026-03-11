@@ -1,342 +1,216 @@
 <div align="center">
-<img src="https://github.com/hetbhalani/HetGPT/blob/deployment/frontend/public/header.png" alt="HetGPT Banner" width="100%" />
+  <img src="https://github.com/hetbhalani/HetGPT/blob/deployment/frontend/public/header.png" alt="HetGPT Banner" width="100%" />
+
+# HetGPT 👽
 
 
-# 👽 HetGPT
 
-### *A Multi-Model AI Assistant*
-
-
-![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB)&nbsp;&nbsp;&nbsp;
-![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688)&nbsp;&nbsp;&nbsp;
-![Next.js](https://img.shields.io/badge/Next.js-16-000000)&nbsp;&nbsp;&nbsp;
-![LangChain](https://img.shields.io/badge/LangChain-0.1%2B-1C3C3C)&nbsp;&nbsp;&nbsp;
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15%2B-336791)&nbsp;&nbsp;&nbsp;
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688)
+![Next.js](https://img.shields.io/badge/Next.js-16-000000)
+![LangChain](https://img.shields.io/badge/LangChain-0.1%2B-1C3C3C)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15%2B-336791)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)
 
+Long-Term + Short-Term Memory • Document RAG • Tool-Augmented Responses • Custom CS Model
 
-<p align="center">
-  <strong>Smart Query Routing • Long-Term Memory • Real-Time Tools • Custom Fine-Tuned Models</strong>
-</p>
-
-[Features](#-features) • [Architecture](#-architecture) • [Installation](#-installation) • [Usage](#-usage) • [API Reference](#-api-reference) • [Contributing](#-contributing)
-
----
+[Overview](#overview) • [Features](#features) • [Architecture](#architecture) • [Quick Start](#quick-start) • [Configuration](#configuration) • [API](#api-reference) • [Contributing](#contributing)
 
 </div>
 
-## 🌟 Overview
+## Overview
 
-**HetGPT** is not another ChatGPT wrapper. It's a purpose-built AI assistant featuring a **multi-model architecture** that intelligently routes queries to specialized models. With **persistent long-term memory**, **real-time tool integration**, and a **custom fine-tuned Computer Science model**, HetGPT delivers expert-level responses tailored to your needs.
+HetGPT is a full-stack AI assistant focused on persistent memory, retrieval quality, and practical tool usage. It combines short-term conversation context, long-term memory summarization, document RAG, and a custom fine-tuned computer science model.
 
+Query routing is used as a supporting layer, while the primary value comes from context retention, grounded retrieval, and tool-augmented responses for more accurate and personalized interactions.
 
----
+## Features
 
-## ✨ Features
+- Dual memory system with short-term session context and long-term memory summaries
+- Document RAG with PDF upload, chunking, embedding, and vector retrieval
+- Tool integrations for web search, reference lookup, weather, and news
+- Custom fine-tuned CS model (Qwen 3 8B + QLoRA)
+- Multi-model backend with intent-aware routing as a support layer
+- Device-based daily rate limiting
+- Modern Next.js interface with streaming-style chat UX
 
-### 🧠 Intelligent Multi-Model Routing
-- **Query Router**: Analyzes user intent and directs queries to the optimal model
-- **CS Specialist Model**: Fine-tuned Qwen 3 8B using QLoRA on Computer Science datasets
-- **General Model**: Handles conversational queries and ambiguous requests
+## Architecture
 
-### 🔧 Real-Time Tool Integration
-| Tool | Description |
-|------|-------------|
-| 🔍 **Web Search** | Real-time information via DuckDuckGo |
-| 📚 **Wikipedia** | Static knowledge retrieval |
-| 🌤️ **Weather** | Live weather data via APIs |
-| 📰 **News** | Current news updates |
-
-### 🧠 Dual-Layer Memory System
-- **Short-Term Memory**: Tracks current conversation context
-- **Long-Term Memory (LTM)**: 
-  - Summarizes and stores conversation insights
-  - FAISS vector store with `all-MiniLM-L6-v2` embeddings
-  - Retrieves relevant past interactions for personalized responses
-
-### 📄 Document RAG (Retrieval-Augmented Generation)
-- Upload PDFs for session-specific Q&A
-- On-the-fly document processing and embedding
-- Supports both Pinecone and FAISS(for LTM context) vector stores
-
-### 🎨 Modern Frontend
-- Built with **Next.js 16** 
-- Glassmorphism UI design with dark mode
-- Streaming responses with real-time tool indicators
-- Fully responsive design
-
----
-
-## 🏗 Architecture
-
-```
+```text
 HetGPT/
-├── 🔌 api/                    # FastAPI Backend
-│   ├── main.py               # Main application & endpoints
-│   ├── auth.py               # JWT authentication
-│   ├── database.py           # PostgreSQL connection
-│   ├── model.py              # SQLAlchemy models
-│   └── schema.py             # Pydantic schemas
-│
-├── 🧠 LLM/                    # Model Ecosystem
-│   ├── cs_model.py           # Fine-tuned CS specialist
-│   ├── general_model.py      # General conversation model
-│   └── summary_model.py      # Conversation summarizer
-│
-├── 🔀 query_router/           # Intent Classification
-│   └── route.py              # Query routing logic
-│
-├── 📚 RAG/                    # Memory & Retrieval
-│   ├── long_term_RAG.py      # Long-term memory retrieval
-│   ├── session_vectordb.py   # Session-based document store
-│   └── vector_db.py          # Vector database utilities
-│
-├── 🛠 Tools/                   # External Integrations
-│   ├── tools.py              # Tool definitions
-│   └── tool_routing.py       # Tool execution logic
-│
-├── 💻 frontend/               # Next.js Frontend
-│   ├── app/
-│   │   ├── components/       # React components
-│   │   ├── context/          # Auth context
-│   │   ├── chat/             # Chat interface
-│   │   └── layout.tsx        # Root layout
-│   └── public/               # Static assets
-│
-├── 🐳 Dockerfile              # Backend container
-├── 🐳 docker-compose.yml      # Full stack orchestration
-└── 📋 requirements.txt        # Python dependencies
+|- api/                  # FastAPI service (auth, chat, upload, rate limiting)
+|- LLM/                  # Model calls (general, CS specialist, summarizer)
+|- query_router/         # Intent routing and session coordination
+|- RAG/                  # Long-term memory and document vector stores
+|- Tools/                # External tool definitions and routing
+|- frontend/             # Next.js web application
+|- docker-compose.yml    # Full-stack local orchestration
+`- Dockerfile            # Backend container image
 ```
 
----
+## Tech Stack
 
-## 🚀 Installation
+| Layer | Technologies |
+|---|---|
+| Frontend | Next.js 16, TypeScript |
+| Backend | FastAPI, SQLAlchemy, Pydantic |
+| Data | PostgreSQL (Neon-compatible) |
+| Vector DB | Pinecone, FAISS |
+| LLM Orchestration | LangChain |
+| Embeddings | all-MiniLM-L6-v2 |
+| Auth | JWT via secure HTTP-only cookies |
+| Deployment | Docker, Docker Compose |
+
+## Quick Start
 
 ### Prerequisites
 
-- **Python 3.10+**
-- **Node.js 18+**
-- **PostgreSQL** (or use Neon cloud database)
-- **Docker** (optional, for containerized deployment)
+- Python 3.10+
+- Node.js 18+
+- Access to a PostgreSQL database
+- API keys for the providers you plan to use
 
-### Option 1: Local Development
+### 1. Clone
 
-#### 1️⃣ Clone the Repository
 ```bash
 git clone https://github.com/hetbhalani/HetGPT.git
 cd HetGPT
 ```
 
-#### 2️⃣ Backend Setup
+### 2. Backend Setup
+
 ```bash
-# Create virtual environment
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Install dependencies
+# Windows (PowerShell)
+.venv\Scripts\Activate.ps1
+
+# macOS/Linux
+# source .venv/bin/activate
+
 pip install -r requirements.txt
-
-# Configure environment variables
-cp .env.example .env
-# Edit .env with your API keys and database URL
 ```
 
-#### 3️⃣ Frontend Setup
+### 3. Frontend Setup
+
 ```bash
 cd frontend
 npm install
+cd ..
 ```
 
-#### 4️⃣ Start the Application
+### 4. Configure Environment Variables
+
+Create a `.env` file at the project root and add the required values.
+
+### 5. Run Locally
+
 ```bash
-# Terminal 1: Start Backend
+# Terminal 1 (backend)
 uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 
-# Terminal 2: Start Frontend
+# Terminal 2 (frontend)
 cd frontend
 npm run dev
 ```
 
-### Option 2: Docker Deployment
+Application URLs:
+
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- API docs: http://localhost:8000/docs
+
+## Docker Deployment
 
 ```bash
-# Build and start all services
 docker-compose up -d --build
-
-# View logs
 docker-compose logs -f
-
-# Stop services
 docker-compose down
 ```
 
----
+## Configuration
 
-## ⚙️ Configuration
-
-Create a `.env` file in the project root:
+Use a root `.env` file similar to the following:
 
 ```env
 # Database
-DATABASE_URL=postgresql://user:password@host:5432/xyz
+DATABASE_URL=postgresql://user:password@host:5432/dbname
 
 # Authentication
-JWT_SECRET=your-super-secret-jwt-key
+JWT_SECRET=replace-with-a-strong-secret
 
 # LLM Providers
-GOOGLE_API_KEY=your-google-api-key
+GOOGLE_API_KEY=your-google-key
 HF_TOKEN=your-huggingface-token
 
-# Vector Stores
-PINECONE_API_KEY=your-pinecone-api-key
+# Vector Store
+PINECONE_API_KEY=your-pinecone-key
 PINECONE_INDEX_NAME=hetgpt-memory
 
-# Optional: Ollama (for local models)
+# Optional local model runtime
 OLLAMA_BASE_URL=http://localhost:11434
 ```
 
----
+## API Reference
 
-## 📖 Usage
+### Core
 
-### Web Interface
-
-1. Open `http://localhost:3000` in your browser
-2. Create an account or log in
-3. Start chatting with HetGPT!
-
-### Example Queries
-
-| Query Type | Example |
-|------------|---------|
-| 🎓 **CS/Coding** | "Explain the time complexity of quicksort and implement it in Python" |
-| 💬 **General** | "What's a good recipe for pasta?" |
-| 🔍 **Web Search** | "What are the latest developments in AI?" |
-| 📄 **Document Q&A** | Upload a PDF and ask "Summarize the key points of this document" |
-
----
-
-## 📡 API Reference
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/health` | GET | Health check |
+| `/chat` | POST | Main query-response endpoint |
+| `/chat/init` | POST | Initialize session with long-term memory |
+| `/chat/end-session` | POST | Trigger background summarization |
+| `/upload` | POST | Upload a document for session retrieval |
 
 ### Authentication
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/auth/register` | POST | Create new user account |
-| `/auth/login` | POST | Login and receive JWT token |
-| `/auth/me` | GET | Get current user info |
-| `/auth/logout` | POST | Logout and clear session |
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/auth/signup` | POST | Register user |
+| `/auth/login` | POST | Authenticate user |
+| `/auth/me` | GET | Return authenticated user profile |
+| `/auth/logout` | POST | Clear auth cookie |
 
-### Chat
+### Limits and User Data
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/chat` | POST | Send message and get AI response |
-| `/chat/stream` | POST | Streaming chat response |
-| `/chat/new` | POST | Start new conversation |
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/rate-limit/check` | POST | Check device-level quota |
+| `/users` | GET | List users |
+| `/users/{user_id}` | GET | Get user by ID |
+| `/users/{user_id}` | DELETE | Delete user |
+| `/users/{user_id}/context` | PUT | Update long-term context |
 
-### Documents
+## Model Notes
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/upload` | POST | Upload PDF for RAG |
-| `/documents` | GET | List uploaded documents |
+The CS specialist path is based on a fine-tuned Qwen 3 8B model using QLoRA on curated programming and computer science datasets. The query router decides when to use this specialist path versus the general model path.
 
----
+## Roadmap
 
-## 🔬 Technical Deep Dive
+- ✅ Device-based rate limiting with daily quota tracking
+- ✅ Long-term memory summarization and recall
+- ⬜ Voice interaction support
+- ⬜ Stronger agentic memory and retrieval quality
+- ⬜ Multi-step tool chaining workflows
+- ⬜ Expanded observability and evaluation benchmarks
 
-### Custom CS Model
+## Contributing
 
-The specialist model is fine-tuned using:
-- **Base Model**: Qwen 3 8B
-- **Method**: QLoRA (Quantized Low-Rank Adaptation)
-- **Dataset**: Curated Computer Science Q&A pairs
-- **Focus Areas**: Algorithms, Data Structures, System Design, Code Generation
-
-#### Training Metrics
-| Metric | Value |
-|--------|-------|
-| Training Loss | 0.098 |
-| Validation Loss | 0.555 |
-| Token Accuracy | 82.6% |
-| Epochs | 2.0 |
-| Total Tokens | 7.5M+ |
-
----
-
-## 🗺️ Future Enhancements
-
-
-- ✅ **Device-Based Rate Limiting**: 5 prompts per device per day with visual indicator
-- ✅ **Long-term Memory**: Conversation summarization
-- ⬜ **Voice Conversation**: Real-time voice input/output using speech recognition
-- ⬜ **Agentic Memory**: Enhanced memory with better context retrieval and reasoning
-- ⬜ **Multi-turn Tool Chains**: Execute complex tasks with sequential tool calls
-
-
-## 🛠 Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| **Frontend** | Next.js 16 |
-| **Backend** | FastAPI, SQLAlchemy, Pydantic |
-| **Database** | PostgreSQL (Neon) |
-| **Vector Store** | FAISS, Pinecone |
-| **LLM Framework** | LangChain |
-| **Embeddings** | HuggingFace (all-MiniLM-L6-v2) |
-| **Auth** | JWT (HTTP-only cookies) |
-| **Deployment** | Docker|
-
----
-
-## 🎯 Key Differentiators
-
-| Feature | HetGPT | Standard Wrappers |
-|---------|--------|-------------------|
-| Multi-Model Routing | ✅ | ❌ |
-| Custom Fine-Tuned Model | ✅ | ❌ |
-| Long-Term Memory | ✅ | ❌ |
-| Real-Time Tools | ✅ | Limited |
-| Document RAG | ✅ | ✅ |
-| Open Source | ✅ | Varies |
-
----
-
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome.
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Commit focused changes with clear messages
+4. Open a pull request describing motivation and impact
 
----
+## License
 
-## 📄 License
+This project is licensed under MIT. See [LICENSE](LICENSE) for details.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Contact
 
----
-
-## � Let's Connect
-
-I'm always open to discussing projects, ideas, or collaborations. You can reach me here:
-
-- 💼 [LinkedIn](https://linkedin.com/in/hetbhalani)
-- 🐦 [Twitter/X](https://twitter.com/hetbhalani)
-- 🤗 [HuggingFace](https://huggingface.co/hetbhalani)
-- 📧 [bhalanihet2006@gmail.com](mailto:bhalanihet2006@gmail.com)
-
----
-
-<div align="center">
-
-**⭐ Star this repo if you find it helpful!**
-
-Made with ❤️ by **Het Bhalani** 👽
-
-</div>
+- LinkedIn: https://linkedin.com/in/hetbhalani
+- Twitter/X: https://twitter.com/hetbhalani
+- Hugging Face: https://huggingface.co/hetbhalani
+- Email: bhalanihet2006@gmail.com
