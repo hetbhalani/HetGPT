@@ -205,6 +205,7 @@ def check_rate_limit_endpoint(req: schema.RateLimitCheck, db: Session = Depends(
 def chat(req : schema.Chat, request: Request, db: Session = Depends(get_db)):
     if req.query:
         try:
+            remaining_after = None
             # Check rate limit if device_id is provided
             if req.device_id:
                 remaining, is_limited, resets_at = rate_limit.check_rate_limit(db, req.device_id)
@@ -230,9 +231,12 @@ def chat(req : schema.Chat, request: Request, db: Session = Depends(get_db)):
             
             # Decrement rate limit after successful response
             if req.device_id:
-                rate_limit.decrement_rate_limit(db, req.device_id)
+                remaining_after = rate_limit.decrement_rate_limit(db, req.device_id)
             
-            return {"response": res}
+            return {
+                "response": res,
+                "remaining_prompts": remaining_after
+            }
         
         except HTTPException:
             raise

@@ -12,6 +12,7 @@ langchain-community
 langchain-huggingface
 langchain-ollama
 langchain-groq
+langchain-openrouter
 langchain-google-genai
 pinecone-client
 langchain-pinecone

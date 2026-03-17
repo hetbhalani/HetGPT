@@ -36,7 +36,7 @@ def check_rate_limit(db: Session, device_id: str) -> tuple[int, bool, str]:
         device_limit.last_reset = datetime.utcnow()
         db.commit()
     
-    remaining = DAILY_PROMPT_LIMIT - device_limit.prompts_used
+    remaining = max(0, DAILY_PROMPT_LIMIT - device_limit.prompts_used)
     is_limited = remaining <= 0
     
     now = datetime.utcnow()
@@ -51,10 +51,13 @@ def decrement_rate_limit(db: Session, device_id: str) -> int:
     if should_reset(device_limit):
         device_limit.prompts_used = 0
         device_limit.last_reset = datetime.utcnow()
+
+    if device_limit.prompts_used >= DAILY_PROMPT_LIMIT:
+        return 0
     
     device_limit.prompts_used += 1
     db.commit()
     
-    remaining = DAILY_PROMPT_LIMIT - device_limit.prompts_used
+    remaining = max(0, DAILY_PROMPT_LIMIT - device_limit.prompts_used)
     return remaining
 

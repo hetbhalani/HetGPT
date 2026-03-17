@@ -13,8 +13,6 @@ model = HuggingFaceEndpoint(
     max_new_tokens=512
 )
 
-llm = ChatHuggingFace(llm=model)
-
 parser = StrOutputParser()
 
 prompt = PromptTemplate(

@@ -1,23 +1,15 @@
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from typing import List, Dict
-from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
+from langchain_groq import ChatGroq
 from dotenv import load_dotenv
 
 load_dotenv()
 
-model = HuggingFaceEndpoint(
-    repo_id='moonshotai/Kimi-K2-Thinking',
-    task='text-generation'
+llm = ChatGroq(
+    model='llama-3.1-8b-instant',
 )
 
-llm = ChatHuggingFace(llm=model)
-
-# llm = ChatOllama(
-#     model="qwen2.5:7b-instruct",
-#     base_url="https://marvel-prince-sister-deviation.trycloudflare.com/",
-#     temperature=0,
-# )
 
 def general_model_call(query: str, history: list = None):
     try:

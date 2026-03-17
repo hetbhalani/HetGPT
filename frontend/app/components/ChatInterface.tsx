@@ -60,6 +60,7 @@ function ChatContent() {
     const [isRateLimited, setIsRateLimited] = useState(false);
     const [deviceId, setDeviceId] = useState<string>('');
     const deviceIdRef = useRef<string>('');
+    const lastRateLimitRequestRef = useRef(0);
 
     // Toast state
     const [toast, setToast] = useState<{ message: string; type: ToastType; isVisible: boolean }>({
@@ -99,6 +100,7 @@ function ChatContent() {
 
     // Function to check rate limit status
     const checkRateLimit = async (devId: string) => {
+        const requestId = ++lastRateLimitRequestRef.current;
         console.log('[RATE_LIMIT] Checking rate limit for device:', devId);
         try {
             const response = await fetch(`${BACKEND_URL}/rate-limit/check`, {
@@ -110,6 +112,9 @@ function ChatContent() {
             if (response.ok) {
                 const data = await response.json();
                 console.log('[RATE_LIMIT] Response data:', data);
+                if (requestId !== lastRateLimitRequestRef.current) {
+                    return;
+                }
                 setRemainingPrompts(data.remaining_prompts);
                 setIsRateLimited(data.is_rate_limited);
             } else {
@@ -253,9 +258,6 @@ function ChatContent() {
         setMessages((prev) => [...prev, userMessage]);
         setIsLoading(true);
 
-        // Optimistically decrement remaining prompts for instant UI feedback
-        setRemainingPrompts(prev => Math.max(0, prev - 1));
-
         // Immediate scroll to bottom after adding user message
         setTimeout(() => scrollToBottom(), 100);
 
@@ -310,7 +312,8 @@ function ChatContent() {
                 const errData = await response.json();
                 // Handle rate limit error
                 if (response.status === 429) {
-                    setRemainingPrompts(0);
+                    const remainingFromServer = errData?.detail?.remaining_prompts;
+                    setRemainingPrompts(typeof remainingFromServer === 'number' ? remainingFromServer : 0);
                     setIsRateLimited(true);
                     throw new Error(errData.detail?.message || "Daily prompt limit reached. Try again tomorrow!");
                 }
@@ -318,6 +321,11 @@ function ChatContent() {
             }
 
             const data = await response.json();
+
+            if (typeof data.remaining_prompts === 'number') {
+                setRemainingPrompts(data.remaining_prompts);
+                setIsRateLimited(data.remaining_prompts <= 0);
+            }
 
             let aiContent: string;
             if (typeof data === 'string') {
@@ -337,17 +345,12 @@ function ChatContent() {
             };
             setMessages((prev) => [...prev, aiMessage]);
 
-            // Update rate limit after successful response
-            if (deviceIdRef.current) {
-                checkRateLimit(deviceIdRef.current);
-            }
         } catch (error) {
             console.error('Error:', error);
 
-            // Revert optimistic decrement on non-rate-limit errors
-            // (rate limit errors set their own value via setRemainingPrompts(0))
-            if (!(error instanceof Error && error.message.includes('Daily prompt limit'))) {
-                setRemainingPrompts(prev => Math.min(5, prev + 1));
+            // Refresh rate limit state after non-429 errors to keep UI synced with backend.
+            if (deviceIdRef.current) {
+                checkRateLimit(deviceIdRef.current);
             }
 
             const errorMessage: Message = {
