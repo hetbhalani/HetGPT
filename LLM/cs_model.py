@@ -2,13 +2,14 @@ import requests
 import re
 import logging
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from dotenv import load_dotenv
+from langchain_groq import ChatGroq
+import os
 
 load_dotenv()
 
-# Custom finetuned CS model endpoint
-CS_MODEL_URL = "https://pleuropneumonic-unoverpaid-moses.ngrok-free.dev/generate"
-
+# Replace with the URL given by Hugging Face Spaces (e.g. https://your-username-your-space-name.hf.space)
+HF_SPACE_URL = os.getenv("HF_SPACE_URL", "https://your-huggingface-space-url.hf.space")
+HF_API_KEY = os.getenv("HF_API_KEY", "")
 
 def _build_prompt(query: str, history: list = None) -> str:
     parts = []
@@ -54,7 +55,13 @@ def cs_model_call(query: str, history: list = None):
             "top_p": 0.9
         }
 
-        response = requests.post(CS_MODEL_URL, json=payload, timeout=120)
+        headers = {}
+        if HF_API_KEY:
+            headers["Authorization"] = f"Bearer {HF_API_KEY}"
+        
+        # Ensure you call the /generate endpoint based on the FastAPI setup
+        endpoint = f"{HF_SPACE_URL.rstrip('/')}/generate"
+        response = requests.post(endpoint, json=payload, headers=headers, timeout=120)
         response.raise_for_status()
 
         data = response.json()

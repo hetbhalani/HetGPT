@@ -13,6 +13,8 @@ model = HuggingFaceEndpoint(
     max_new_tokens=512
 )
 
+llm = ChatHuggingFace(llm=model)
+
 parser = StrOutputParser()
 
 prompt = PromptTemplate(
@@ -34,12 +36,6 @@ prompt = PromptTemplate(
             Output only the memory lines.
         """
     )
-
-# llm = ChatOllama(
-#     model="qwen2.5:7b-instruct",
-#     base_url="https://marvel-prince-sister-deviation.trycloudflare.com/",
-#     temperature=0,
-# )
 
 # get history and convert it to plain text
 def messages_to_text(history):
