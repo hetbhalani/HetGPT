@@ -3,24 +3,24 @@
 
 # HetGPT 👽
 
-
-
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000)
 ![LangChain](https://img.shields.io/badge/LangChain-0.1%2B-1C3C3C)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15%2B-336791)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)
+![GGUF](https://img.shields.io/badge/GGUF-Q4__K__M-FF6B35)
+![HF Spaces](https://img.shields.io/badge/HF%20Spaces-Deployed-FFD21E)
 
 Long-Term + Short-Term Memory • Document RAG • Tool-Augmented Responses • Custom CS Model
 
-[Overview](#overview) • [Features](#features) • [Architecture](#architecture) • [Quick Start](#quick-start) • [Configuration](#configuration) • [API](#api-reference) • [Contributing](#contributing)
+[Overview](#overview) • [Features](#features) • [Architecture](#architecture) • [Custom Model](#custom-model) • [Quick Start](#quick-start) • [Configuration](#configuration) • [API](#api-reference) • [Contributing](#contributing)
 
 </div>
 
 ## Overview
 
-HetGPT is a full-stack AI assistant focused on persistent memory, retrieval quality, and practical tool usage. It combines short-term conversation context, long-term memory summarization, document RAG, and a custom fine-tuned computer science model.
+HetGPT is a full-stack AI assistant focused on persistent memory, retrieval quality, and practical tool usage. It combines short-term conversation context, long-term memory summarization, document RAG, and a custom fine-tuned computer science model deployed as a live REST API.
 
 Query routing is used as a supporting layer, while the primary value comes from context retention, grounded retrieval, and tool-augmented responses for more accurate and personalized interactions.
 
@@ -29,7 +29,7 @@ Query routing is used as a supporting layer, while the primary value comes from 
 - Dual memory system with short-term session context and long-term memory summaries
 - Document RAG with PDF upload, chunking, embedding, and vector retrieval
 - Tool integrations for web search, reference lookup, weather, and news
-- Custom fine-tuned CS model (Qwen 3 8B + QLoRA)
+- Custom fine-tuned CS model (Qwen3 8B + QLoRA) — converted to GGUF and deployed as a REST API
 - Multi-model backend with intent-aware routing as a support layer
 - Device-based daily rate limiting
 - Modern Next.js interface with streaming-style chat UX
@@ -59,7 +59,47 @@ HetGPT/
 | LLM Orchestration | LangChain |
 | Embeddings | all-MiniLM-L6-v2 |
 | Auth | JWT via secure HTTP-only cookies |
-| Deployment | Docker, Docker Compose |
+| Deployment | Docker, Docker Compose, HF Spaces |
+
+---
+
+## Custom Model
+
+### Fine-tuning
+
+The CS specialist path is based on **Qwen3-8B fine-tuned with QLoRA** on curated programming and computer science datasets. The query router decides when to use this specialist path versus the general model path.
+
+- Base model: `Qwen/Qwen3-8B`
+- Method: QLoRA Fine-Tuning (4-bit quantized LoRA)
+- Dataset: Curated CS/programming Q&A
+- HF Hub: [hetbhalani/HetGPT-Q4_K_M-GGUF](https://huggingface.co/hetbhalani/HetGPT-Q4_K_M-GGUF)
+
+### GGUF Conversion & Deployment
+
+After fine-tuning, the model was converted to **GGUF format (Q4_K_M quantization)** for efficient CPU inference and deployed as a containerized REST API on Hugging Face Spaces.
+
+
+**Live API:** [hetbhalani-hetgpt-space.hf.space](https://hetbhalani-hetgpt-space.hf.space)
+
+
+```bash
+# Generate
+POST /generate
+{
+  "prompt": "Explain binary search trees.",
+  "max_new_tokens": 512,
+  "temperature": 0.7
+}
+```
+
+### ⚠️ Performance Note (Free Tier Transparency)
+
+The Space currently runs on **HF Spaces free CPU tier**. Inference is functional but slow (~2–5 tok/s). This is a hardware constraint, not a model or code limitation.
+
+**HetGPT SLOW (try the model here):** [het-gpt-slow.vercel.app](https://het-gpt-slow.vercel.app/)
+
+
+---
 
 ## Quick Start
 
@@ -86,7 +126,7 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 
 # macOS/Linux
-# source .venv/bin/activate
+source .venv/bin/activate
 
 pip install -r requirements.txt
 ```
@@ -140,7 +180,7 @@ DATABASE_URL=postgresql://user:password@host:5432/dbname
 JWT_SECRET=replace-with-a-strong-secret
 
 # LLM Providers
-GOOGLE_API_KEY=your-google-key
+GROQ_API_KEY=your-groq-key
 HF_TOKEN=your-huggingface-token
 
 # Vector Store
@@ -182,14 +222,11 @@ OLLAMA_BASE_URL=http://localhost:11434
 | `/users/{user_id}` | DELETE | Delete user |
 | `/users/{user_id}/context` | PUT | Update long-term context |
 
-## Model Notes
-
-The CS specialist path is based on a fine-tuned Qwen 3 8B model using QLoRA on curated programming and computer science datasets. The query router decides when to use this specialist path versus the general model path.
-
 ## Roadmap
 
 - ✅ Device-based rate limiting with daily quota tracking
 - ✅ Long-term memory summarization and recall
+- ✅ Custom fine-tuned GGUF model deployed as REST API
 - ⬜ Voice interaction support
 - ⬜ Stronger agentic memory and retrieval quality
 - ⬜ Multi-step tool chaining workflows
@@ -204,13 +241,9 @@ Contributions are welcome.
 3. Commit focused changes with clear messages
 4. Open a pull request describing motivation and impact
 
-## License
-
-This project is licensed under MIT. See [LICENSE](LICENSE) for details.
-
 ## Contact
 
-- LinkedIn: https://linkedin.com/in/hetbhalani
 - Twitter/X: https://twitter.com/hetbhalani
+- LinkedIn: https://linkedin.com/in/hetbhalani
 - Hugging Face: https://huggingface.co/hetbhalani
 - Email: bhalanihet2006@gmail.com
