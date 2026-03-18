@@ -3,6 +3,7 @@ from langchain_core.messages import HumanMessage, ToolMessage, AIMessage, System
 from langchain_ollama import ChatOllama
 from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
 from langchain_groq import ChatGroq
+import logging
 import os
 from dotenv import load_dotenv
 
@@ -20,6 +21,14 @@ llm = ChatGroq(model="moonshotai/kimi-k2-instruct-0905")
 tools = [Tools.what_the_duck, Tools.wiki, Tools.weather, Tools.news]
 llm_w_tools = llm.bind_tools(tools)
 
+
+def _invoke_with_tools(messages):
+    try:
+        return llm_w_tools.invoke(messages)
+    except Exception as e:
+        logging.exception(f"Tool LLM invocation failed: {e}")
+        return None
+
 def tool_call(query, history: list = None):
     if history:
         messages = list(history)
@@ -31,7 +40,10 @@ def tool_call(query, history: list = None):
         ]    
         messages.append(HumanMessage(content=query))
     
-    response = llm_w_tools.invoke(messages)
+    response = _invoke_with_tools(messages)
+    if response is None:
+        return "I could not reach the tools provider right now. Please try again in a moment."
+
     messages.append(response)
     
     max_iterations = 5
@@ -41,7 +53,6 @@ def tool_call(query, history: list = None):
         iteration += 1
         
         for tool_call in response.tool_calls:
-            print(response)
             tool_name = tool_call["name"]
             args = tool_call["args"]
             tool_id = tool_call["id"]
@@ -65,6 +76,7 @@ def tool_call(query, history: list = None):
                         )
                     )
                 except Exception as e:
+                    logging.exception(f"Tool execution failed for {tool_name}: {e}")
                     messages.append(
                         ToolMessage(
                             content=f"Error: {str(e)}",
@@ -73,7 +85,10 @@ def tool_call(query, history: list = None):
                         )
                     )
         
-        response = llm_w_tools.invoke(messages)
+        response = _invoke_with_tools(messages)
+        if response is None:
+            return "I had a temporary connection issue while processing tools. Please try again."
+
         messages.append(response)
     
     return response.content
