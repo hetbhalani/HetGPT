@@ -3,12 +3,21 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from typing import List, Dict
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
+import os
 
 load_dotenv()
 
-llm = ChatGroq(
-    model='llama-3.1-8b-instant',
-)
+GROQ_API_KEY = (os.getenv("GROQ_API_KEY") or "").strip()
+
+if GROQ_API_KEY:
+    llm = ChatGroq(
+        model='llama-3.1-8b-instant',
+        api_key=GROQ_API_KEY,
+    )
+else:
+    llm = ChatGroq(
+        model='llama-3.1-8b-instant',
+    )
 
 
 def general_model_call(query: str, history: list = None):

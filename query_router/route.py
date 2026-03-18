@@ -180,19 +180,23 @@ def route(query: str, session_id: str, ltm: str = None):
     for i in data:
         task = i['task']
         out = None 
-        
-        if i['route'] == 'TOOLS':
-            out = tool_call(task, messages)
-            
-        elif i['route'] == 'CS':
-            out = cs_model_call(task, messages)
 
-        elif i['route'] == 'GENERAL':
-            out = general_model_call(task, messages)
-            
-        else:
-            logging.warning("Unknown route, defaulting to GENERAL")
-            out = general_model_call(task, messages)
+        try:
+            if i['route'] == 'TOOLS':
+                out = tool_call(task, messages)
+
+            elif i['route'] == 'CS':
+                out = cs_model_call(task, messages)
+
+            elif i['route'] == 'GENERAL':
+                out = general_model_call(task, messages)
+
+            else:
+                logging.warning("Unknown route, defaulting to GENERAL")
+                out = general_model_call(task, messages)
+        except Exception as e:
+            logging.exception(f"Routing execution failed for route={i.get('route')}: {e}")
+            out = "I'm having trouble reaching an external model right now. Please try again in a moment."
         
         if out is None or out == "":
             out = "I'm sorry, I couldn't answer that question."

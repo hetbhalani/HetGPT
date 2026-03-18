@@ -29,18 +29,30 @@ class Tools:
     @tool
     def weather(city: str):
         """Give the current weather conditions of given city by calling this API"""
+        if not OPENWEATHERMAP_API_KEY:
+            return {"error": "OPENWEATHERMAP_API_KEY is not configured"}
+
         url = f'http://api.openweathermap.org/data/2.5/weather?q={city}&APPID={OPENWEATHERMAP_API_KEY}&units=metric'
-        res = requests.get(url).json()
-        # print(res)
-        
-        return res['main']
+        res = requests.get(url, timeout=15)
+        data = res.json()
+
+        if res.status_code != 200:
+            return {"error": data.get("message", "Failed to fetch weather")}
+
+        return data.get('main', {"error": "Weather data unavailable"})
 
     @staticmethod
     @tool
     def news(topic: str):
         """Give the current NEWS of given topic by calling the API"""
+        if not NEWS_API_KEY:
+            return {"error": "NEWS_API_KEY is not configured"}
+
         start_date = datetime.date.today() - datetime.timedelta(days=1)
         finish_date = datetime.date.today()
         url = f"https://newsapi.org/v2/everything?q={topic}&from={start_date}&to={finish_date}&sortBy=popularity&apiKey={NEWS_API_KEY}"
 
-        return requests.get(url).json()
+        try:
+            return requests.get(url, timeout=15).json()
+        except requests.RequestException as e:
+            return {"error": f"News API request failed: {str(e)}"}

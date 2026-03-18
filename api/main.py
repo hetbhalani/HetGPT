@@ -241,7 +241,7 @@ def chat(req : schema.Chat, request: Request, db: Session = Depends(get_db)):
         except HTTPException:
             raise
         except Exception as e:
-            logging.error(f"error: {e}")
+            logging.exception(f"Chat error: {e}")
             raise HTTPException(500, "Something went wrong")
 
 # init chat session (pre-load LTM)
