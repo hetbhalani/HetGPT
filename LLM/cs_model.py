@@ -1,12 +1,18 @@
 import re
 import logging
+import os
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
 
 load_dotenv()
 
-llm = ChatGroq(model='llama-3.3-70b-versatile', temperature=0.3)
+GROQ_API_KEY = (os.getenv("GROQ_API_KEY") or "").strip()
+
+if GROQ_API_KEY:
+    llm = ChatGroq(model='llama-3.3-70b-versatile', temperature=0.3, api_key=GROQ_API_KEY)
+else:
+    llm = ChatGroq(model='llama-3.3-70b-versatile', temperature=0.3)
 
 SYSTEM_PROMPT = (
     "You are a computer science assistant. "

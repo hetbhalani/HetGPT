@@ -9,13 +9,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+GROQ_API_KEY = (os.getenv("GROQ_API_KEY") or "").strip()
+
 # model = HuggingFaceEndpoint(
 #     repo_id='moonshotai/Kimi-K2-Thinking',
 #     task='text-generation'
 # )
 
 # llm = ChatHuggingFace(llm=model)
-llm = ChatGroq(model="moonshotai/kimi-k2-instruct-0905")
+if GROQ_API_KEY:
+    llm = ChatGroq(model="moonshotai/kimi-k2-instruct-0905", api_key=GROQ_API_KEY)
+else:
+    llm = ChatGroq(model="moonshotai/kimi-k2-instruct-0905")
 
     
 tools = [Tools.what_the_duck, Tools.wiki, Tools.weather, Tools.news]
