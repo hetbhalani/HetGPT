@@ -23,7 +23,6 @@ def _build_messages(query: str, history: list = None):
             if isinstance(msg, (HumanMessage, AIMessage, SystemMessage)):
                 messages.append(msg)
 
-    # Ensure the current task/query is always included for CS routing.
     if not messages or not isinstance(messages[-1], HumanMessage) or messages[-1].content != query:
         messages.append(HumanMessage(content=query))
 
