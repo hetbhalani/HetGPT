@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import sys
 import os
-
+import shutil
+import tempfile
 import logging
 
 # basic logging
@@ -13,11 +14,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from query_router.route import route
 
-from api import model, schema, auth
+from api import model, schema, auth, rate_limit
 from api.database import engine, get_db, SessionLocal
 from RAG.long_term_RAG import LtmRag
 from LLM.summary_model import summary_model_call
-from query_router.route import get_session, sessions, clear_ltm_cache
+from query_router.route import get_session, sessions, clear_ltm_cache, init_ltm
 from RAG.session_vectordb import store_document
 
 model.Base.metadata.create_all(bind=engine)
@@ -27,16 +28,15 @@ app = FastAPI()
 #CORS to allow backend call
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001"
-    ],
+    allow_origin_regex=".*", 
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "Authorization", "Content-Type"],
 )
+
+@app.get('/health')
+def health():
+    return {"status": "ok"}
 
 #cookie setting
 COOKIE_NAME = "access_token"
@@ -45,6 +45,12 @@ COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 # retrive the JWT token from cookie
 def get_current_user_cookie(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get(COOKIE_NAME)
+    
+    # Fallback to auth header
+    if not token:
+        auth_header = request.headers.get("authorization")  # headers are lowercase in starlette
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
     
     if not token:
         return None
@@ -96,15 +102,16 @@ def user_signup(user: schema.UserCreate, response: Response, db: Session = Depen
         value=access_token,
         max_age=COOKIE_MAX_AGE,
         httponly=True,
-        secure=False,
-        samesite="lax"
+        secure=True,
+        samesite="none"
     )
     
     return {
         "message": "Signup successful",
         "id": new_user.id,
         "name": new_user.name,
-        "email": new_user.email
+        "email": new_user.email,
+        "access_token": access_token
     }
 
 # LogIn
@@ -127,15 +134,15 @@ def user_login(user: schema.UserLogin, response: Response, db: Session = Depends
         value=access_token,
         max_age=COOKIE_MAX_AGE,
         httponly=True,
-        secure=False,
-        samesite="lax"
+        secure=True,
+        samesite="none"
     )
     
-    return {"message": "Login successful", "id": db_user.id, "name": db_user.name}
+    return {"message": "Login successful", "id": db_user.id, "name": db_user.name, "access_token": access_token}
 
 # Check if user is already authenticated
 @app.get('/auth/me')
-def get_me(current_user = Depends(get_user_with_error)):
+def get_me(request: Request, current_user = Depends(get_user_with_error)):
     return {
         "id": current_user.id,
         "name": current_user.name,
@@ -183,11 +190,35 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "User deleted successfully"}
 
+# Check rate limit endpoint
+@app.post('/rate-limit/check', response_model=schema.RateLimitResponse)
+def check_rate_limit_endpoint(req: schema.RateLimitCheck, db: Session = Depends(get_db)):
+    remaining, is_limited, resets_at = rate_limit.check_rate_limit(db, req.device_id)
+    return {
+        "remaining_prompts": remaining,
+        "is_rate_limited": is_limited,
+        "resets_at": resets_at
+    }
+
 # chat with LLM
 @app.post('/chat')
 def chat(req : schema.Chat, request: Request, db: Session = Depends(get_db)):
     if req.query:
         try:
+            remaining_after = None
+            # Check rate limit if device_id is provided
+            if req.device_id:
+                remaining, is_limited, resets_at = rate_limit.check_rate_limit(db, req.device_id)
+                if is_limited:
+                    raise HTTPException(
+                        status_code=429, 
+                        detail={
+                            "message": "Daily prompt limit reached. Try again tomorrow!",
+                            "remaining_prompts": 0,
+                            "resets_at": resets_at
+                        }
+                    )
+            
             # retrive long term memory of auth user
             user = get_current_user_cookie(request, db)
             ltm_context = user.context if user else ""
@@ -198,39 +229,76 @@ def chat(req : schema.Chat, request: Request, db: Session = Depends(get_db)):
                 ltm=ltm_context
             )
             
-            return {"response": res}
+            # Decrement rate limit after successful response
+            if req.device_id:
+                remaining_after = rate_limit.decrement_rate_limit(db, req.device_id)
+            
+            return {
+                "response": res,
+                "remaining_prompts": remaining_after
+            }
         
+        except HTTPException:
+            raise
         except Exception as e:
             logging.error(f"error: {e}")
             raise HTTPException(500, "Something went wrong")
 
+# init chat session (pre-load LTM)
+@app.post('/chat/init')
+def init_chat(req: schema.Chat, request: Request, db: Session = Depends(get_db)):
+    try:
+        user = get_current_user_cookie(request, db)
+        if user:
+            ltm_context = user.context
+            if ltm_context:
+                init_ltm(req.session_id, ltm_context)
+                return {"message": "LTM init done"}
+        return {"message": "No LTM to init"}
+    except Exception as e:
+        logging.error(f"Init error: {e}")
+        return {"message": "Init failed", "error": str(e)}
+
 # upload file to vector DB (without query)
 @app.post('/upload')
 async def upload_file(file: UploadFile = File(...), session_id: str = Form(...), request: Request = None, db: Session = Depends(get_db)):
+    temp_file_path = None
     try:
-        # read file
-        file_content = await file.read()
-        file_name = file.filename
+        # Create temp file
+        suffix = os.path.splitext(file.filename)[1] or '.pdf'
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            temp_file_path = tmp.name
         
-        # store in vector DB
-        success = store_document(session_id, file_content, file_name)
+        logging.info(f"File saved to temp path: {temp_file_path}")
+        
+        # store in vector DB (Pinecone) - Pass Path
+        success, msg = store_document(session_id, temp_file_path, file.filename)
         
         if success:
             # mark session as having documents
             session = get_session(session_id)
             sessions[session_id]['after_docs'] = True
             return {
-                "message": "File uploaded and stored successfully",
-                "file_name": file_name,
+                "message": "File processed and stored in Pinecone successfully",
+                "file_name": file.filename,
                 "session_id": session_id
             }
         else:
-            raise HTTPException(400, "Failed to process file")
+            raise HTTPException(400, detail=msg)
     
     except Exception as e:
         logging.error(f"Upload error: {e}")
         logging.exception("Exception occurred during file upload")
         raise HTTPException(500, f"Upload failed: {str(e)}")
+        
+    finally:
+        #clean up temp file
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.unlink(temp_file_path)
+            except Exception as e:
+                logging.error(f"Failed to delete temp file: {e}")
 
 # after the session end
 def process_session_end(session_id: str, user_id: int):

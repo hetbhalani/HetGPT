@@ -19,14 +19,24 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     const checkAuth = async (): Promise<boolean> => {
         try {
-            const response = await fetch("http://localhost:8000/auth/me", {
+            const token = localStorage.getItem("access_token");
+
+            const headers: HeadersInit = {};
+            if (token) {
+                headers["Authorization"] = `Bearer ${token}`;
+            }
+
+            const response = await fetch(`${BACKEND_URL}/auth/me`, {
                 credentials: "include",
+                headers,
             });
 
             if (response.ok) {
@@ -35,6 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return true;
             } else {
                 setUser(null);
+                // Clear invalid token
+                localStorage.removeItem("access_token");
                 return false;
             }
         } catch (error) {
@@ -46,13 +58,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const logout = async () => {
         try {
-            await fetch("http://localhost:8000/auth/logout", {
+            const token = localStorage.getItem("access_token");
+            const headers: HeadersInit = {};
+            if (token) {
+                headers["Authorization"] = `Bearer ${token}`;
+            }
+
+            await fetch(`${BACKEND_URL}/auth/logout`, {
                 method: "POST",
                 credentials: "include",
+                headers,
             });
         } catch (error) {
             console.error("Logout failed:", error);
         } finally {
+            localStorage.removeItem("access_token");
             setUser(null);
         }
     };

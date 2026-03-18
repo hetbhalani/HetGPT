@@ -1,0 +1,78 @@
+# ===========================================
+# Docker Ignore File for HetGPT Backend
+# ===========================================
+# Files and directories listed here will NOT be 
+# copied into the Docker image, reducing size and
+# preventing sensitive data from being included.
+
+# Git
+.git
+.gitignore
+
+# Python virtual environments
+.venv
+venv
+env
+.env.local
+.env.*.local
+
+# Python cache
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Build artifacts
+*.egg-info
+.eggs
+dist
+build
+*.egg
+
+# Logs
+*.log
+logs
+
+# Test and coverage
+.pytest_cache
+.coverage
+htmlcov
+.tox
+.nox
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node (if any at root level)
+node_modules
+
+# Jupyter notebooks (not needed in production)
+.ipynb_checkpoints
+notebooks
+
+# Frontend (has its own Dockerfile)
+frontend
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Docker files (prevent recursive issues)
+Dockerfile*
+docker-compose*.yml
+.docker
+
+# Temporary files
+tmp
+temp
+*.tmp

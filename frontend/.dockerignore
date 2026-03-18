@@ -1,0 +1,45 @@
+# ===========================================
+# Docker Ignore File for HetGPT Frontend
+# ===========================================
+
+# Dependencies (will be installed in container)
+node_modules
+
+# Build output
+.next
+out
+build
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test
+coverage
+.nyc_output
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Misc
+*.md
+!README.md

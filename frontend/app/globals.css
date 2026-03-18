@@ -109,6 +109,115 @@ body {
   background: var(--sidebar-foreground);
 }
 
+/* Mobile scrollbar - thinner for touch devices */
+@media (max-width: 640px) {
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+}
+
+/* Hide scrollbar class for mobile */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Touch-friendly tap highlight */
+@media (max-width: 640px) {
+
+  button,
+  a,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Hide feature cards on mobile */
+  .feature-cards-grid {
+    display: none !important;
+  }
+
+  /* Make welcome heading bigger and on two lines for mobile */
+  .welcome-heading {
+    font-size: 3rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .welcome-heading .welcome-break {
+    display: block;
+  }
+
+  /* Center welcome content vertically on mobile */
+  .welcome-container {
+    justify-content: center !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  /* Chat page mobile styles */
+  .chat-mobile-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(3, 7, 18, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 0;
+
+  }
+
+  /* Bigger round avatars on mobile chat */
+  .chat-avatar {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    border-radius: 9999px !important;
+    padding-bottom: 0.5rem !important;
+  }
+
+  .chat-avatar img {
+    border-radius: 9999px !important;
+  }
+
+  /* Bigger text on mobile chat */
+  .chat-message-text {
+    font-size: 1rem !important;
+    line-height: 1.6 !important;
+  }
+
+  /* More top padding for chat container on mobile */
+  .chat-messages-container {
+    padding-top: 9rem !important;
+  }
+}
+
+/* Hide native video play button on mobile */
+video::-webkit-media-controls {
+  display: none !important;
+}
+
+video::-webkit-media-controls-enclosure {
+  display: none !important;
+}
+
+video::-webkit-media-controls-panel {
+  display: none !important;
+}
+
+video::-webkit-media-controls-play-button {
+  display: none !important;
+}
+
+video::-webkit-media-controls-start-playback-button {
+  display: none !important;
+}
+
+video::-moz-media-controls {
+  display: none !important;
+}
+
 /* Animations */
 @keyframes fadeIn {
   from {
@@ -213,6 +322,7 @@ body {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }

@@ -11,8 +11,13 @@ langchain
 langchain-community
 langchain-huggingface
 langchain-ollama
-faiss-cpu
+langchain-groq
+langchain-openrouter
+langchain-google-genai
+pinecone-client
+langchain-pinecone
 pymupdf
-sentence-transformers
+faiss-cpu
 duckduckgo-search
 wikipedia
+email-validator

@@ -1,11 +1,16 @@
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from langchain_community.vectorstores import FAISS
+import os
 
 class LtmRag:
     def __init__(self, ltm: str):
         self.ltm = ltm.strip() if ltm else ""
-        self.embeddings = HuggingFaceEmbeddings(model='sentence-transformers/all-MiniLM-L6-v2')
+        self.embeddings = HuggingFaceEndpointEmbeddings(
+             model="sentence-transformers/all-MiniLM-L6-v2",
+             task="feature-extraction",
+             huggingfacehub_api_token=os.getenv("HF_TOKEN") 
+        )
         self.vec_db = None
         
         if self.ltm:
@@ -19,4 +24,3 @@ class LtmRag:
         retriever = self.vec_db.as_retriever(search_type="similarity", search_kwargs={"k": 2}) 
         res = retriever.invoke(query)
         return res
-    

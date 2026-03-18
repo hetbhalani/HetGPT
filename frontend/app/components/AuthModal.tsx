@@ -13,6 +13,8 @@ interface AuthModalProps {
 
 type AuthMode = "login" | "signup";
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
 export function AuthModal({ isOpen, onClose, onSuccess, initialMode = "login" }: AuthModalProps) {
     const [mode, setMode] = useState<AuthMode>(initialMode);
     const [isLoading, setIsLoading] = useState(false);
@@ -74,7 +76,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = "login" }:
                 ? { email, password }
                 : { name, email, password };
 
-            const response = await fetch(`http://localhost:8000${endpoint}`, {
+            const response = await fetch(`${BACKEND_URL}${endpoint}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
@@ -87,7 +89,11 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = "login" }:
                 throw new Error(data.detail || "Authentication failed");
             }
 
-            // Backend returns { id, name, email, message } directly, not nested under 'user'
+            // Backend returns { id, name, email, message, access_token } directly
+            // Store token in localStorage for cross-domain auth (cookies don't work cross-domain)
+            if (data.access_token) {
+                localStorage.setItem("access_token", data.access_token);
+            }
             setUser({ id: data.id, name: data.name, email: data.email || email });
             resetForm();
             onSuccess();
@@ -109,29 +115,29 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = "login" }:
             />
 
             {/* Modal */}
-            <div className="relative w-full max-w-md mx-4 animate-scaleIn">
-                <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/95 backdrop-blur-xl shadow-2xl">
+            <div className="relative w-full h-full sm:h-auto sm:max-w-md sm:mx-4 animate-scaleIn flex items-center justify-center">
+                <div className="relative overflow-hidden w-full h-full sm:h-auto sm:rounded-2xl border-0 sm:border border-white/10 bg-slate-950/95 backdrop-blur-xl shadow-2xl">
                     {/* Close button */}
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-all duration-200"
+                        className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-all duration-200 z-10"
                     >
                         <X className="h-5 w-5" />
                     </button>
 
-                    <div className="p-8">
+                    <div className="p-6 sm:p-8 pt-12 sm:pt-8 flex flex-col justify-center min-h-full sm:min-h-0">
                         {/* Header */}
-                        <div className="text-center mb-8">
-                            <h2 className="text-2xl font-bold mb-2 text-slate-100">
+                        <div className="text-center mb-6 sm:mb-8">
+                            <h2 className="text-xl sm:text-2xl font-bold mb-2 text-slate-100">
                                 {mode === "login" ? "Welcome back" : "Create account"}
                             </h2>
-                            <p className="text-slate-400 text-sm">
+                            <p className="text-slate-400 text-xs sm:text-sm">
                                 {mode === "login" ? "Sign in to continue to HetGPT" : "Sign up to get started with HetGPT"}
                             </p>
                         </div>
 
                         {/* Tab Switcher */}
-                        <div className="relative flex mb-6 p-1 rounded-xl bg-slate-900/50 border border-white/5">
+                        <div className="relative flex mb-5 sm:mb-6 p-1 rounded-xl bg-slate-900/50 border border-white/5">
                             {/* Sliding Indicator */}
                             <div
                                 className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-violet-600 rounded-lg shadow-md transition-transform duration-300 ease-out"
@@ -141,7 +147,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = "login" }:
                             />
                             <button
                                 onClick={() => handleModeSwitch("login")}
-                                className={`relative flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors duration-200 z-10 ${mode === "login"
+                                className={`relative flex-1 py-2 sm:py-2.5 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-colors duration-200 z-10 ${mode === "login"
                                     ? "text-white"
                                     : "text-slate-400 hover:text-slate-200"
                                     }`}
@@ -150,7 +156,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = "login" }:
                             </button>
                             <button
                                 onClick={() => handleModeSwitch("signup")}
-                                className={`relative flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors duration-200 z-10 ${mode === "signup"
+                                className={`relative flex-1 py-2 sm:py-2.5 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-colors duration-200 z-10 ${mode === "signup"
                                     ? "text-white"
                                     : "text-slate-400 hover:text-slate-200"
                                     }`}
@@ -167,61 +173,61 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = "login" }:
                         )}
 
                         {/* Form */}
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
                             {mode === "signup" && (
                                 <div className="relative group">
-                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-violet-500 transition-colors" />
+                                    <User className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-slate-500 group-focus-within:text-violet-500 transition-colors" />
                                     <input
                                         type="text"
                                         placeholder="Full Name"
                                         value={name}
                                         onChange={(e) => setName(e.target.value)}
-                                        className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-slate-900/50 border border-white/10 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:bg-slate-900/80 transition-all duration-200"
+                                        className="w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-3.5 rounded-xl bg-slate-900/50 border border-white/10 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:bg-slate-900/80 transition-all duration-200 text-sm sm:text-base"
                                         required
                                     />
                                 </div>
                             )}
 
                             <div className="relative group">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-violet-500 transition-colors" />
+                                <Mail className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-slate-500 group-focus-within:text-violet-500 transition-colors" />
                                 <input
                                     type="email"
                                     placeholder="Email Address"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-slate-900/50 border border-white/10 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:bg-slate-900/80 transition-all duration-200"
+                                    className="w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-3.5 rounded-xl bg-slate-900/50 border border-white/10 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:bg-slate-900/80 transition-all duration-200 text-sm sm:text-base"
                                     required
                                 />
                             </div>
 
                             <div className="relative group">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-violet-500 transition-colors" />
+                                <Lock className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-slate-500 group-focus-within:text-violet-500 transition-colors" />
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     placeholder="Password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full pl-12 pr-12 py-3.5 rounded-xl bg-slate-900/50 border border-white/10 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:bg-slate-900/80 transition-all duration-200"
+                                    className="w-full pl-10 sm:pl-12 pr-10 sm:pr-12 py-3 sm:py-3.5 rounded-xl bg-slate-900/50 border border-white/10 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:bg-slate-900/80 transition-all duration-200 text-sm sm:text-base"
                                     required
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                                    className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
                                 >
-                                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                    {showPassword ? <EyeOff className="h-4 w-4 sm:h-5 sm:w-5" /> : <Eye className="h-4 w-4 sm:h-5 sm:w-5" />}
                                 </button>
                             </div>
 
                             {mode === "signup" && (
                                 <div className="relative group">
-                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-violet-500 transition-colors" />
+                                    <Lock className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-slate-500 group-focus-within:text-violet-500 transition-colors" />
                                     <input
                                         type={showPassword ? "text" : "password"}
                                         placeholder="Confirm Password"
                                         value={confirmPassword}
                                         onChange={(e) => setConfirmPassword(e.target.value)}
-                                        className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-slate-900/50 border border-white/10 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:bg-slate-900/80 transition-all duration-200"
+                                        className="w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-3.5 rounded-xl bg-slate-900/50 border border-white/10 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:bg-slate-900/80 transition-all duration-200 text-sm sm:text-base"
                                         required
                                     />
                                 </div>
@@ -230,11 +236,11 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = "login" }:
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full py-3.5 px-4 rounded-xl bg-violet-600 text-white font-medium hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-violet-500/20"
+                                className="w-full py-3 sm:py-3.5 px-4 rounded-xl bg-violet-600 text-white font-medium hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-violet-500/20 text-sm sm:text-base"
                             >
                                 {isLoading ? (
                                     <span className="flex items-center justify-center gap-2">
-                                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                                        <svg className="animate-spin h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24">
                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                         </svg>
@@ -247,7 +253,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = "login" }:
                         </form>
 
                         {/* Footer */}
-                        <p className="text-center text-sm text-slate-500 mt-6">
+                        <p className="text-center text-xs sm:text-sm text-slate-500 mt-5 sm:mt-6">
                             {mode === "login" ? (
                                 <>Don&apos;t have an account?{" "}
                                     <button onClick={() => handleModeSwitch("signup")} className="text-violet-400 hover:text-violet-300 font-medium transition-colors">

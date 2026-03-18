@@ -1,0 +1,68 @@
+# ===========================================
+# HetGPT Docker Compose Configuration
+# ===========================================
+# This file defines all services needed to run HetGPT
+# 
+# Usage:
+#   Start all services:     docker-compose up -d --build
+#   View logs:              docker-compose logs -f
+#   Stop all services:      docker-compose down
+#   Stop and delete data:   docker-compose down -v
+
+version: '3.8'
+
+services:
+  # ====================
+  # Backend API Service
+  # ====================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hetgpt-backend
+    ports:
+      - "8000:8000"
+    # All environment variables loaded from .env file automatically
+    env_file:
+      - .env
+    volumes:
+      # Persist uploaded data
+      - ./Data:/app/Data
+    # No local db - using Neon cloud database
+    restart: unless-stopped
+    networks:
+      - hetgpt-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # =====================
+  # Frontend Web Service
+  # =====================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hetgpt-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - hetgpt-network
+
+  # No local PostgreSQL needed - DATABASE_URL points to Neon
+
+# ====================
+# Network Configuration
+# ====================
+networks:
+  hetgpt-network:
+    name: hetgpt-network
+    driver: bridge

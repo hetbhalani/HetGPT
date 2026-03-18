@@ -13,7 +13,7 @@ from Tools.tool_routing import tool_call
 from LLM.cs_model import cs_model_call
 from LLM.general_model import general_model_call
 from RAG.long_term_RAG import LtmRag
-from RAG.session_vectordb import get_session_vectordb, store_document, query_session_docs, clear_session_vectordb, session_vectordb_cache
+from RAG.session_vectordb import store_document, query_session_docs, clear_session_vectordb
 from typing import List, Dict
 
 load_dotenv()
@@ -72,7 +72,7 @@ def get_session(session_id: str):
     if session_id not in sessions:
         sessions[session_id] = {'after_docs': False}
         sessions[session_id]['messages'] = [
-            SystemMessage(content="You are a helpful assistant. Answer questions shortly.")
+            SystemMessage(content="You are a helpful assistant. You serve the user with accurate information and explanations.")
         ]
     return sessions[session_id]
 
@@ -104,6 +104,12 @@ def clear_ltm_cache(session_id: str):
     #also clear session vector db
     clear_session_vectordb(session_id)
 
+# Initialize LTM for a session explicitly
+def init_ltm(session_id: str, ltm: str):
+    if session_id not in ltm_cache:
+        logging.info(f"Initializing LTM Rag for session: {session_id}")
+        ltm_cache[session_id] = LtmRag(ltm)
+
 # route the query to corresponding LLM
 def route(query: str, session_id: str, ltm: str = None):
     global sessions
@@ -115,9 +121,7 @@ def route(query: str, session_id: str, ltm: str = None):
     ltm_facts = ""
     if ltm:
         try:
-            if session_id not in ltm_cache:
-                logging.info(f"Initializing LTM Rag for session: {session_id}")
-                ltm_cache[session_id] = LtmRag(ltm)
+            init_ltm(session_id, ltm)
             
             # Init the LTM RAG db
             rag = ltm_cache[session_id]
