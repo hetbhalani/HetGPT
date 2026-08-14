@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from api import model
 
@@ -16,8 +17,15 @@ def get_or_create_device_limit(db: Session, device_id: str) -> model.DeviceRateL
             last_reset=datetime.utcnow()
         )
         db.add(device_limit)
-        db.commit()
-        db.refresh(device_limit)
+        try:
+            db.commit()
+            db.refresh(device_limit)
+        except IntegrityError:
+            # Another request inserted the same device_id concurrently.
+            db.rollback()
+            device_limit = db.query(model.DeviceRateLimit).filter(
+                model.DeviceRateLimit.device_id == device_id
+            ).first()
     
     return device_limit
 

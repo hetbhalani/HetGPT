@@ -21,3 +21,5 @@ faiss-cpu
 duckduckgo-search
 wikipedia
 email-validator
+useful-moonshine-onnx
+librosa

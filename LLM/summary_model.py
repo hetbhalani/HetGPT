@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 model = HuggingFaceEndpoint(
-    repo_id='meta-llama/Llama-3.1-8B-Instruct',
+    repo_id='openai/gpt-oss-20b',
     task='text-generation',
     timeout=300,
     max_new_tokens=512

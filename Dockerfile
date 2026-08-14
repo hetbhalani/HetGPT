@@ -23,7 +23,7 @@ COPY requirements.txt .
 
 # Install Python dependencies
 # --no-cache-dir reduces image size by not caching pip packages
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Copy the entire application code
 COPY . .

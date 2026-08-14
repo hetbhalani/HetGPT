@@ -2,3 +2,10 @@
 .env
 test.py
 Data/
+
+# Python byte-compiled / pycache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
