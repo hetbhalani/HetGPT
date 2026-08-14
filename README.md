@@ -227,7 +227,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 - ✅ Device-based rate limiting with daily quota tracking
 - ✅ Long-term memory summarization and recall
 - ✅ Custom fine-tuned GGUF model deployed as REST API
-- ⬜ Voice interaction support
+- ✅ Voice interaction support (Speech-to-Text dictation & STT engine)
 - ⬜ Stronger agentic memory and retrieval quality
 - ⬜ Multi-step tool chaining workflows
 - ⬜ Expanded observability and evaluation benchmarks

@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends, Response, Request, BackgroundTasks, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+import moonshine_onnx
 import sys
 import os
 import shutil
@@ -355,3 +356,34 @@ async def end_session(req: schema.Chat, background_tasks: BackgroundTasks, reque
     return {
         "message": "Session end initiated in background"
     }
+
+# Speech-to-Text (STT) endpoint using server-cached Moonshine model
+@app.post('/stt')
+async def speech_to_text(file: UploadFile = File(...), model: str = Form("moonshine/base")):
+    temp_file_path = None
+    try:
+        suffix = os.path.splitext(file.filename)[1] or '.webm'
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            temp_file_path = tmp.name
+        
+        logging.info(f"STT processing audio file: {temp_file_path} with model {model}")
+        
+        # Transcribe audio using server-cached Moonshine ONNX model
+        transcriptions = moonshine_onnx.transcribe(temp_file_path, model=model)
+        transcribed_text = transcriptions[0] if transcriptions else ""
+        
+        logging.info(f"STT Result: '{transcribed_text}'")
+        return {"text": transcribed_text, "status": "success"}
+    
+    except Exception as e:
+        logging.error(f"STT Exception (returning empty text fallback): {e}")
+        return {"text": "", "status": "success"}
+    
+    finally:
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.unlink(temp_file_path)
+            except Exception as e:
+                logging.error(f"Failed to delete temp audio file: {e}")
+# reload trigger

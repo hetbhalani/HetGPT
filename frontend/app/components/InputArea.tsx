@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Paperclip, ArrowUp, Mic } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Paperclip, ArrowUp, Mic, Square, Loader2, Cpu } from "lucide-react";
 import clsx from "clsx";
+import { useMoonshineSTT, STTModelOption } from "../hooks/useMoonshineSTT";
 
 interface InputAreaProps {
     onSend: (message: string, file?: File) => void;
@@ -11,11 +12,48 @@ interface InputAreaProps {
     isRateLimited?: boolean;
 }
 
-export function InputArea({ onSend, isLoading = false, remainingPrompts = 5, isRateLimited = false }: InputAreaProps) {
+export function InputArea({ onSend, isLoading = false, isRateLimited = false }: InputAreaProps) {
     const [input, setInput] = useState("");
+    const [preSpeechInput, setPreSpeechInput] = useState("");
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [showModelMenu, setShowModelMenu] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Live speech updates text area in real-time as spoken
+    const handleLiveSpeech = useCallback((liveText: string) => {
+        setInput((prev) => {
+            const base = preSpeechInput.trim();
+            return base ? `${base} ${liveText}` : liveText;
+        });
+    }, [preSpeechInput]);
+
+    // High accuracy server-side Moonshine STT refinement
+    const handleTranscriptionComplete = useCallback((finalText: string) => {
+        setInput((prev) => {
+            const base = preSpeechInput.trim();
+            return base ? `${base} ${finalText}` : finalText;
+        });
+    }, [preSpeechInput]);
+
+    const {
+        isRecording,
+        isTranscribing,
+        selectedModel,
+        setSelectedModel,
+        toggleRecording,
+    } = useMoonshineSTT({
+        onTranscriptionComplete: handleTranscriptionComplete,
+        onLiveSpeech: handleLiveSpeech,
+        defaultModel: "web-speech",
+    });
+
+    const handleToggleRecording = () => {
+        if (!isRecording) {
+            setPreSpeechInput(input);
+        }
+        toggleRecording();
+    };
 
     // Auto-resize textarea
     useEffect(() => {
@@ -39,7 +77,7 @@ export function InputArea({ onSend, isLoading = false, remainingPrompts = 5, isR
                 setSelectedFile(file);
             } else {
                 alert("Only PDF files are allowed.");
-                e.target.value = ""; // Reset input
+                e.target.value = "";
             }
         }
     };
@@ -55,6 +93,7 @@ export function InputArea({ onSend, isLoading = false, remainingPrompts = 5, isR
         if (isLoading || isRateLimited || (!input.trim() && !selectedFile)) return;
         onSend(input, selectedFile || undefined);
         setInput("");
+        setPreSpeechInput("");
         setSelectedFile(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
@@ -64,18 +103,19 @@ export function InputArea({ onSend, isLoading = false, remainingPrompts = 5, isR
         }
     };
 
+    const getModelLabel = (model: STTModelOption) => {
+        switch (model) {
+            case "moonshine-base":
+                return "Server Moonshine Base (245M)";
+            case "moonshine-tiny":
+                return "Server Moonshine Tiny";
+            case "web-speech":
+                return "Browser Web Speech API";
+        }
+    };
+
     return (
         <div className="relative flex w-full flex-col rounded-2xl border border-slate-700/80 bg-slate-950/80 backdrop-blur-xl transition-all duration-300 focus-within:border-violet-500 focus-within:bg-slate-900/90 focus-within:shadow-[0_18px_40px_rgba(0,0,0,0.9)]">
-
-            {/* Rate Limit Warning Banner */}
-            {isRateLimited && (
-                <div className="mx-3 sm:mx-4 mt-3 sm:mt-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-amber-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    <span className="text-sm">Daily prompt limit reached. Try again tomorrow!</span>
-                </div>
-            )}
 
             {/* Selected File Display (Compact Card) */}
             {selectedFile && (
@@ -107,7 +147,7 @@ export function InputArea({ onSend, isLoading = false, remainingPrompts = 5, isR
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Chat with HetGPT..."
+                placeholder={isRecording ? "Listening... speak now" : "Chat with HetGPT..."}
                 className="max-h-[200px] min-h-[48px] sm:min-h-[52px] w-full resize-none bg-transparent px-10 sm:px-12 py-3 sm:py-4 text-sm sm:text-base text-slate-100 focus:outline-none scrollbar-hide placeholder:text-slate-500"
                 rows={1}
             />
@@ -125,8 +165,9 @@ export function InputArea({ onSend, isLoading = false, remainingPrompts = 5, isR
             <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading}
+                title="Attach PDF"
                 className={clsx(
-                    "absolute left-2 bottom-2 sm:bottom-2.5 rounded-full p-2 sm:p-2.5 transition-colors min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 flex items-center justify-center",
+                    "absolute left-2 bottom-2 sm:bottom-2.5 rounded-full p-2 sm:p-2.5 transition-colors min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 flex items-center justify-center cursor-pointer",
                     isLoading
                         ? "text-slate-600 cursor-not-allowed"
                         : "text-violet-300 hover:bg-slate-800/80 hover:text-violet-200"
@@ -135,22 +176,96 @@ export function InputArea({ onSend, isLoading = false, remainingPrompts = 5, isR
                 <Paperclip className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
 
-            {/* Send Button (Right) */}
-            <div className="absolute right-2 sm:right-3 bottom-2 sm:bottom-3 flex items-center gap-1 sm:gap-2">
-                {!input.trim() && !selectedFile && !isLoading && (
-                    <button
-                        title="Coming soon"
-                        className="rounded-full p-2 text-violet-300 hover:bg-slate-800/80 hover:text-violet-200 transition-colors hidden sm:flex cursor-not-allowed"
-                    >
-                        <Mic className="h-5 w-5" />
-                    </button>
+            {/* Controls (Right) */}
+            <div className="absolute right-2 sm:right-3 bottom-2 sm:bottom-3 flex items-center gap-1.5 sm:gap-2">
+
+                {/* STT Model Dropdown Selector Popover */}
+                {showModelMenu && (
+                    <div className="absolute bottom-12 right-0 z-50 w-64 rounded-xl border border-slate-700 bg-slate-900/95 p-2 shadow-2xl backdrop-blur-xl">
+                        <div className="px-2 py-1 text-[11px] font-semibold tracking-wider text-slate-400 uppercase flex items-center justify-between">
+                            <span>Select STT Engine</span>
+                            <Cpu className="h-3 w-3 text-violet-400" />
+                        </div>
+                        <div className="mt-1 space-y-1">
+                            {(["web-speech", "moonshine-base", "moonshine-tiny"] as STTModelOption[]).map((m) => (
+                                <button
+                                    key={m}
+                                    onClick={() => {
+                                        setSelectedModel(m);
+                                        setShowModelMenu(false);
+                                    }}
+                                    className={clsx(
+                                        "w-full text-left px-2.5 py-2 rounded-lg text-xs transition-colors flex flex-col cursor-pointer",
+                                        selectedModel === m
+                                            ? "bg-violet-600/30 text-violet-200 font-medium border border-violet-500/40"
+                                            : "text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+                                    )}
+                                >
+                                    <span>{getModelLabel(m)}</span>
+                                    <span className="text-[10px] text-slate-400">
+                                        {m === "moonshine-base"
+                                            ? "UsefulSensors Moonshine 245M model (Server Cached)"
+                                            : m === "moonshine-tiny"
+                                                ? "Moonshine Tiny model (Server Cached)"
+                                                : "Browser native API (instant response)"}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 )}
+
+                {/* Sleek Inline "Listening..." Badge next to Mic */}
+                {isRecording && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-medium animate-pulse">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                        <span>listening...</span>
+                    </div>
+                )}
+
+                {/* Mic Speech-to-Text Button */}
+                <div className="relative flex items-center">
+                    <button
+                        onClick={handleToggleRecording}
+                        onContextMenu={(e) => {
+                            e.preventDefault();
+                            setShowModelMenu((prev) => !prev);
+                        }}
+                        disabled={isTranscribing}
+                        title={
+                            isRecording
+                                ? "Click to stop recording"
+                                : `Speech to Text using ${getModelLabel(selectedModel)} (Right-click to change STT model)`
+                        }
+                        className={clsx(
+                            "relative flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-full transition-all duration-300 border cursor-pointer",
+                            isRecording
+                                ? "bg-red-500 text-white border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.7)] animate-pulse ring-2 ring-red-500/40"
+                                : isTranscribing
+                                    ? "bg-slate-800 text-violet-400 border-violet-500/50 cursor-wait"
+                                    : "bg-slate-800/80 text-violet-300 border-slate-700/80 hover:bg-slate-700/80 hover:text-violet-200 hover:border-violet-500/50"
+                        )}
+                    >
+                        {isTranscribing ? (
+                            <Loader2 className="h-4 w-4 sm:h-4 sm:w-4 animate-spin text-violet-400" />
+                        ) : isRecording ? (
+                            <Square className="h-3.5 w-3.5 fill-current text-white" />
+                        ) : (
+                            <Mic className="h-4 w-4 sm:h-4 sm:w-4" />
+                        )}
+                    </button>
+                </div>
+
+                {/* Send Button */}
                 <button
                     onClick={handleSend}
                     disabled={isLoading || isRateLimited || (!input.trim() && !selectedFile)}
                     title={isRateLimited ? "Daily limit reached" : undefined}
                     className={clsx(
-                        "flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-full transition-all duration-200 border",
+                        "flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-full transition-all duration-200 border cursor-pointer",
                         isLoading || isRateLimited
                             ? "bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed opacity-70"
                             : (input.trim() || selectedFile)
@@ -164,3 +279,5 @@ export function InputArea({ onSend, isLoading = false, remainingPrompts = 5, isR
         </div>
     );
 }
+
+
