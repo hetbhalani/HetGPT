@@ -18,9 +18,9 @@ GROQ_API_KEY = (os.getenv("GROQ_API_KEY") or "").strip()
 
 # llm = ChatHuggingFace(llm=model)
 if GROQ_API_KEY:
-    llm = ChatGroq(model="moonshotai/kimi-k2-instruct-0905", api_key=GROQ_API_KEY)
+    llm = ChatGroq(model="openai/gpt-oss-20b", api_key=GROQ_API_KEY)
 else:
-    llm = ChatGroq(model="moonshotai/kimi-k2-instruct-0905")
+    llm = ChatGroq(model="openai/gpt-oss-20b")
 
     
 tools = [Tools.what_the_duck, Tools.wiki, Tools.weather, Tools.news]
