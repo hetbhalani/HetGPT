@@ -19,7 +19,7 @@ from typing import List, Dict
 load_dotenv()
 
 llm = HuggingFaceEndpoint(
-    repo_id='meta-llama/Llama-3.1-8B-Instruct',
+    repo_id='openai/gpt-oss-20b',
     task='conversational'
 )
 
